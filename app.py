@@ -42,7 +42,7 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# --- MÓDULO 1: PANEL PRINCIPAL (VERSIÓN ESTÉTICA PREMIUM) ---
+# --- MÓDULO 1: PANEL PRINCIPAL (TAMAÑO ORIGINAL CON COLORES REFINADOS) ---
 if menu == "📊 Panel Principal":
     st.title("📊 Resumen de Inventario")
     df_p = cargar_datos("productos")
@@ -66,35 +66,34 @@ if menu == "📊 Panel Principal":
         m2.metric("🥤 Total Sin Licor", f"{total_stock_sin} und")
         m3.metric("🍸 Total Con Licor", f"{total_stock_con} und")
         
-        # --- SECCIÓN DE ALERTAS REFINADAS ---
+        # --- SECCIÓN DE ALERTAS (TAMAÑO AMPLIO - COLORES ELEGANTES) ---
         df_alerta = df_p[df_p['stock'] <= 4].sort_values('stock')
         
         if not df_alerta.empty:
             st.markdown("---")
-            st.markdown("<p style='color: #ff4b4b; font-weight: bold; margin-bottom: 10px;'>🚨 DISPONIBILIDAD CRÍTICA</p>", unsafe_allow_html=True)
+            st.markdown("<h3 style='color: #ff4b4b; font-size: 20px;'>🚨 Disponibilidad Crítica</h3>", unsafe_allow_html=True)
             
-            # Ajustamos el tamaño a 5 columnas para que los badges sean más pequeños y horizontales
-            cols_alerta = st.columns(5)
+            # Usamos 4 columnas para mantener el tamaño grande de las tarjetas
+            cols_alerta = st.columns(4)
             
             for i, (_, fila) in enumerate(df_alerta.iterrows()):
-                # Diseño: Fondo oscuro, borde rojo suave, texto blanco/rojo
+                # Diseño: Fondo oscuro premium, borde coral, tamaño cómodo
                 badge_html = f"""
                 <div style="
-                    background-color: #1e1e1e; 
+                    background-color: #1a1a1a; 
                     color: #ffffff; 
-                    padding: 5px 10px; 
-                    border-radius: 6px; 
+                    padding: 20px; 
+                    border-radius: 12px; 
                     border: 1px solid #ff4b4b;
-                    margin-bottom: 5px;
-                    font-size: 13px;
+                    margin-bottom: 15px;
                     text-align: center;
-                    line-height: 1.2;">
-                    <span style="color: #ff4b4b; font-weight: bold;">{fila['nombre']}</span><br>
-                    <span style="font-size: 11px; opacity: 0.8;">{fila['stock']} unidades</span>
+                    box-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
+                    <p style="margin: 0; font-size: 18px; font-weight: bold; color: #ff4b4b;">{fila['nombre']}</p>
+                    <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">{fila['stock']} unidades restantes</p>
+                    <p style="margin: 0; font-size: 12px; opacity: 0.6; text-transform: uppercase;">{fila['tipo']}</p>
                 </div>
                 """
-                # Usamos el operador módulo (%) para repartir en las columnas
-                with cols_alerta[i % 5]:
+                with cols_alerta[i % 4]:
                     st.markdown(badge_html, unsafe_allow_html=True)
         
         st.markdown("---")
