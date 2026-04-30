@@ -42,30 +42,55 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# --- MÓDULO 1: PANEL PRINCIPAL ---
+# --- MÓDULO 1: PANEL PRINCIPAL (ACTUALIZADO) ---
 if menu == "📊 Panel Principal":
     st.title("📊 Resumen de Inventario")
     df_p = cargar_datos("productos")
     
     if not df_p.empty:
+        # Asegurar datos numéricos
         df_p['stock'] = pd.to_numeric(df_p['stock'], errors='coerce').fillna(0).astype(int)
         df_p['precio'] = pd.to_numeric(df_p['precio'], errors='coerce').fillna(0).astype(int)
+        
+        # --- CÁLCULOS ---
+        df_sin = df_p[df_p['tipo'].str.contains("Sin", case=False, na=False)]
+        df_con = df_p[df_p['tipo'].str.contains("Con", case=False, na=False)]
+        
+        total_stock_sin = int(df_sin['stock'].sum())
+        total_stock_con = int(df_con['stock'].sum())
+        valor_inventario = int((df_p['stock'] * df_p['precio']).sum())
 
+        # --- MÉTRICAS SUPERIORES ---
+        m1, m2, m3 = st.columns(3)
+        m1.metric("💰 Valor Total", f"$ {valor_inventario:,}".replace(",", "."))
+        m2.metric("🥤 Total Sin Licor", f"{total_stock_sin} und")
+        m3.metric("🍸 Total Con Licor", f"{total_stock_con} und")
+        
+        st.markdown("---")
+
+        # --- ALERTAS DE STOCK CRÍTICO (4 o menos) ---
+        df_alerta = df_p[df_p['stock'] <= 4]
+        if not df_alerta.empty:
+            st.error("### ⚠️ ALERTA: Stock Crítico (4 unidades o menos)")
+            for _, fila in df_alerta.iterrows():
+                st.warning(f"**{fila['nombre']}** ({fila['tipo']}): solo quedan **{fila['stock']}** unidades.")
+            st.markdown("---")
+
+        # --- TABLAS DETALLADAS ---
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("🥤 Sin Licor")
-            df_sin = df_p[df_p['tipo'].str.contains("Sin", case=False, na=False)]
+            st.subheader("🥤 Detalle Sin Licor")
             st.metric("Variedades", len(df_sin))
             st.dataframe(df_sin[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
 
         with col2:
-            st.subheader("🍸 Con Licor")
-            df_con = df_p[df_p['tipo'].str.contains("Con", case=False, na=False)]
+            st.subheader("🍸 Detalle Con Licor")
             st.metric("Variedades", len(df_con))
             st.dataframe(df_con[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
+            
     else:
-        st.info("No hay productos registrados.")
+        st.info("No hay productos registrados en la base de datos.")
 
 # --- MÓDULO 2: REGISTRAR VENTA ---
 elif menu == "🛒 Registrar Venta":
