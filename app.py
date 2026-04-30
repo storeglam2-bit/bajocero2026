@@ -95,44 +95,47 @@ elif menu == "🛒 Registrar Venta":
                 else:
                     st.error(f"❌ Stock insuficiente (Disponible: {stock_act})")
 
-# --- MÓDULO 3: ENTRADA PRODUCCIÓN (CON DIFERENCIACIÓN) ---
+# --- MÓDULO 3: ENTRADA PRODUCCIÓN (CORREGIDO) ---
 elif menu == "📥 Entrada Producción":
     st.title("📥 Ingreso de Producción")
     df_p = cargar_datos("productos")
     
     if not df_p.empty:
-        # Creamos una etiqueta amigable que incluya el tipo para no confundirse
-        df_p['etiqueta'] = df_p['nombre'] + " (" + df_p['tipo'] + ")"
+        # 1. CREAMOS UNA IDENTIFICACIÓN ÚNICA (Nombre + Tipo)
+        # Esto evita que 'Fresa' (Sin Licor) se sume en 'Fresa' (Con Licor)
+        df_p['id_unico'] = df_p['nombre'].astype(str) + " - " + df_p['tipo'].astype(str)
         
         with st.form("form_entrada"):
-            # El usuario ahora ve "Sabor (Tipo)" en la lista desplegable
-            opcion_sel = st.selectbox(
-                "Seleccionar Sabor producido", 
-                options=df_p['etiqueta'].tolist(),
-                help="Diferencia aquí los sabores Sin Licor y Con Licor"
+            st.info("Selecciona el sabor específico para asegurar que el stock se sume correctamente.")
+            
+            # El selector ahora muestra el nombre y el tipo claramente
+            seleccion = st.selectbox(
+                "Sabor y Categoría", 
+                options=df_p['id_unico'].tolist()
             )
             
-            cantidad = st.number_input("Cantidad de botellas nuevas", min_value=1, step=1)
+            cantidad = st.number_input("Botellas nuevas producidas", min_value=1, step=1)
             
-            if st.form_submit_button("Sumar al Inventario"):
-                # Buscamos el sabor original basado en la etiqueta seleccionada
-                nombre_real = df_p[df_p['etiqueta'] == opcion_sel]['nombre'].values[0]
-                idx = df_p[df_p['nombre'] == nombre_real].index[0]
+            if st.form_submit_button("Actualizar Inventario"):
+                # 2. LOCALIZAMOS LA FILA EXACTA usando el ID ÚNICO
+                idx = df_p[df_p['id_unico'] == seleccion].index[0]
                 
-                # Sumamos la producción al stock actual
-                df_p.at[idx, 'stock'] = int(df_p.at[idx, 'stock']) + cantidad
+                # Realizamos la suma
+                stock_actual = int(df_p.at[idx, 'stock'])
+                df_p.at[idx, 'stock'] = stock_actual + cantidad
                 
-                # Eliminamos la columna temporal de etiqueta antes de guardar
-                df_para_guardar = df_p.drop(columns=['etiqueta'])
+                # 3. LIMPIEZA ANTES DE GUARDAR
+                # Eliminamos la columna temporal 'id_unico' para no ensuciar el Excel
+                df_para_enviar = df_p.drop(columns=['id_unico'])
                 
                 try:
-                    conn.update(worksheet="productos", data=df_para_guardar)
-                    st.success(f"✅ ¡Stock actualizado! Se sumaron {cantidad} botellas a {nombre_real}.")
+                    conn.update(worksheet="productos", data=df_para_enviar)
+                    st.success(f"✅ Se sumaron {cantidad} unidades a: {seleccion}")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Error al guardar: {e}")
+                    st.error(f"Error al conectar con Google Sheets: {e}")
     else:
-        st.warning("⚠️ Primero debes agregar sabores en el 'Catálogo de Productos'.")
+        st.warning("⚠️ No hay productos en el catálogo para actualizar.")
 
 # --- MÓDULO 4: CATÁLOGO PRODUCTOS (Solución a UnsupportedOperationError) ---
 elif menu == "🥤 Catálogo Productos":
