@@ -477,26 +477,43 @@ elif menu == "📋 Historial de Ventas":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # --- VISUALIZACIÓN DE TENDENCIAS ---
-        col_chart, col_rank = st.columns([1.5, 1])
+# --- VISUALIZACIÓN DE TENDENCIAS (DISEÑO SLIM) ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_chart, col_rank = st.columns([1.2, 1]) # Ajustamos proporciones para dar equilibrio
         
         with col_chart:
-            st.markdown("#### 📊 Desempeño por Producto")
-            ventas_prod = df_f.groupby('producto')['cantidad'].sum().reset_index()
-            # Usamos Plotly para un acabado más "premium" si está disponible, 
-            # si no, el bar_chart nativo estilizado:
-            st.bar_chart(data=ventas_prod, x='producto', y='cantidad', color="#00f2fe")
+            st.markdown("#### 📊 Unidades por Sabor")
+            # Preparar datos
+            ventas_prod = df_f.groupby('producto')['cantidad'].sum().reset_index().sort_values('cantidad', ascending=True)
+            
+            # Gráfico de barras horizontales (ocupa menos espacio visual verticalmente)
+            st.bar_chart(
+                data=ventas_prod, 
+                x='producto', 
+                y='cantidad', 
+                color="#00f2fe", 
+                horizontal=True, # 🔥 CLAVE: Barras horizontales para mejor lectura de nombres
+                use_container_width=True
+            )
 
         with col_rank:
-            st.markdown("#### 🏆 Top Clientes (Valor)")
+            st.markdown("#### 🏆 Top Clientes (Inversión)")
             ventas_cli = df_f.groupby('cliente')['total'].sum().reset_index().sort_values('total', ascending=False).head(5)
+            
+            # Tabla con barras de progreso integradas (muy estético)
             st.dataframe(
                 ventas_cli, 
                 column_config={
-                    "cliente": "Cliente",
-                    "total": st.column_config.ProgressColumn("Inversión Total", format="$ %d", min_value=0, max_value=float(ventas_cli['total'].max() if not ventas_cli.empty else 100))
+                    "cliente": st.column_config.TextColumn("Cliente"),
+                    "total": st.column_config.ProgressColumn(
+                        "Total Compra", 
+                        format="$ %d", 
+                        min_value=0, 
+                        max_value=float(ventas_cli['total'].max() if not ventas_cli.empty else 100)
+                    )
                 },
-                hide_index=True, use_container_width=True
+                hide_index=True, 
+                use_container_width=True
             )
 
         # --- LOG DE TRANSACCIONES DETALLADO ---
