@@ -175,40 +175,74 @@ elif menu == "📥 Entrada Producción":
     else:
         st.warning("⚠️ No hay productos en el catálogo para actualizar.")
 
-# --- MÓDULO 4: CATÁLOGO PRODUCTOS (Solución a UnsupportedOperationError) ---
+# --- MÓDULO 4: CATÁLOGO PRODUCTOS (REDISEÑO PROFESIONAL) ---
 elif menu == "🥤 Catálogo Productos":
-    st.title("🥤 Gestión de Productos")
+    st.markdown("<h1 style='text-align: center;'>🥤 Gestión de Catálogo</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
     
-    with st.expander("✨ Añadir Nuevo Sabor"):
-        with st.form("form_nuevo_p"):
-            n = st.text_input("Nombre del Sabor")
-            t = st.selectbox("Categoría", ["Sin Licor", "Con Licor"])
-            p = st.number_input("Precio de Venta", min_value=0, step=1000)
+    # --- MÉTRICAS RÁPIDAS DEL CATÁLOGO ---
+    if not df_p.empty:
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Sabores Totales", len(df_p))
+        c2.metric("Variedades Sin Licor", len(df_p[df_p['tipo'].str.contains("Sin", case=False, na=False)]))
+        c3.metric("Variedades Con Licor", len(df_p[df_p['tipo'].str.contains("Con", case=False, na=False)]))
+    
+    st.markdown("---")
+
+    # --- FORMULARIO DE REGISTRO ESTILIZADO ---
+    with st.expander("✨ AGREGAR NUEVO SABOR AL MENÚ", expanded=False):
+        with st.form("form_nuevo_producto", clear_on_submit=True):
+            col_form1, col_form2 = st.columns(2)
             
-            if st.form_submit_button("Guardar Producto"):
-                if n:
-                    nueva_f = pd.DataFrame([{
-                        "nombre": str(n), 
-                        "color": "#000", 
-                        "tipo": str(t), 
-                        "precio": int(p), 
-                        "stock": 0
+            with col_form1:
+                nombre = st.text_input("📝 Nombre del Sabor", placeholder="Ej: Maracuyá Explosivo")
+                tipo = st.selectbox("🏷️ Categoría", ["Sin Licor", "Con Licor"])
+            
+            with col_form2:
+                precio = st.number_input("💵 Precio de Venta ($)", min_value=0, step=500, value=35000)
+                st.markdown("<br>", unsafe_allow_html=True)
+                submit = st.form_submit_button("🚀 GUARDAR EN CATÁLOGO", use_container_width=True)
+            
+            if submit:
+                if nombre:
+                    # Crear el nuevo registro
+                    nueva_fila = pd.DataFrame([{
+                        "nombre": nombre.strip(),
+                        "tipo": tipo,
+                        "precio": int(precio),
+                        "stock": 0,  # Todo producto nuevo inicia en 0
+                        "color": "#00f2fe" if "Sin" in tipo else "#ff4b4b"
                     }])
-                    # Unir datos asegurando que no haya errores de referencia
-                    df_res = pd.concat([df_p, nueva_f], ignore_index=True) if not df_p.empty else nueva_f
+                    
+                    df_actualizado = pd.concat([df_p, nueva_fila], ignore_index=True) if not df_p.empty else nueva_fila
                     
                     try:
-                        conn.update(worksheet="productos", data=df_res)
-                        st.success(f"✅ {n} añadido correctamente.")
+                        conn.update(worksheet="productos", data=df_actualizado)
+                        st.success(f"✅ ¡{nombre} ha sido añadido con éxito!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"❌ Error al guardar. Verifica los permisos de Editor en el Excel.")
+                        st.error(f"❌ Error al guardar: {e}")
                 else:
-                    st.warning("El nombre es obligatorio.")
-    
+                    st.warning("⚠️ Por favor, escribe un nombre para el producto.")
+
+    # --- TABLA DE PRODUCTOS ACTUALES ---
+    st.markdown("### 📋 Sabores en Menú")
     if not df_p.empty:
-        st.dataframe(df_p[['nombre', 'tipo', 'precio', 'stock']], use_container_width=True, hide_index=True)
+        # Formatear la tabla para que se vea mejor
+        df_display = df_p.copy()
+        # Ordenar por tipo y luego por nombre
+        df_display = df_display.sort_values(['tipo', 'nombre'])
+        
+        # Renombrar columnas para la vista del usuario
+        df_display.columns = [c.upper() for c in df_display.columns]
+        
+        st.dataframe(
+            df_display[['NOMBRE', 'TIPO', 'PRECIO', 'STOCK']], 
+            use_container_width=True, 
+            hide_index=True
+        )
+    else:
+        st.info("Aún no tienes productos registrados. ¡Usa el botón de arriba para empezar!")
 
 # --- MÓDULO 5: GESTIÓN CLIENTES ---
 elif menu == "🏢 Gestión Clientes":
