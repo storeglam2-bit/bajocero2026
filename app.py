@@ -133,93 +133,105 @@ if menu == "📊 Panel Principal":
     else:
         st.info("No hay productos registrados.")
 
-# --- MÓDULO 2: REGISTRAR VENTA (SISTEMA POS PREMIUM) ---
+## --- MÓDULO 2: REGISTRAR VENTA (MULTI-PRODUCTO Y PRECIOS FLEXIBLES) ---
 elif menu == "🛒 Registrar Venta":
     st.markdown("<h1 style='text-align: center;'>🛒 Registro de Ventas</h1>", unsafe_allow_html=True)
     
-    # Carga de datos de productos y clientes
+    # Inicializar el carrito en la sesión si no existe
+    if 'carrito' not in st.session_state:
+        st.session_state.carrito = []
+
     df_p = cargar_datos("productos")
     df_c = cargar_datos("clientes")
     
     if not df_p.empty:
-        # Asegurar tipos de datos
         df_p['stock'] = pd.to_numeric(df_p['stock'], errors='coerce').fillna(0).astype(int)
         df_p['precio'] = pd.to_numeric(df_p['precio'], errors='coerce').fillna(0).astype(int)
         df_p['id_unico'] = df_p['nombre'] + " - " + df_p['tipo']
 
-        # --- DISEÑO EN 3 COLUMNAS ---
-        col_prod, col_conf, col_resumen = st.columns([1.5, 1.2, 1.3])
+        # --- ÁREA DE SELECCIÓN DE PRODUCTOS ---
+        with st.expander("➕ Añadir Productos a la Venta", expanded=True):
+            col_sel, col_cant, col_prec = st.columns([2, 1, 1])
+            
+            with col_sel:
+                prod_sel = st.selectbox("Producto:", df_p['id_unico'].tolist())
+                info_p = df_p[df_p['id_unico'] == prod_sel].iloc[0]
+                stock_disp = info_p['stock']
+                st.caption(f"Stock disponible: {stock_disp} unidades")
 
-        with col_prod:
-            st.markdown("### 🔍 1. Producto")
-            seleccion_v = st.selectbox("Seleccionar Sabor:", df_p['id_unico'].tolist())
+            with col_cant:
+                cant_v = st.number_input("Cantidad:", min_value=1, max_value=stock_disp if stock_disp > 0 else 1, step=1)
             
-            # Info del producto seleccionado
-            info_v = df_p[df_p['id_unico'] == seleccion_v].iloc[0]
-            stock_v = info_v['stock']
-            precio_v = info_v['precio']
-            
-            # Tarjeta de estado de stock
-            color_stock = "#ff4b4b" if stock_v <= 4 else "#00f2fe"
-            st.markdown(f"""
-                <div style="background-color: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid {color_stock};">
-                    <p style="margin: 0; font-size: 14px; color: #888;">DISPONIBLE</p>
-                    <h2 style="margin: 0; color: {color_stock};">{stock_v} <span style="font-size: 15px;">unidades</span></h2>
-                    <hr style="margin: 10px 0; border: 0.5px solid #333;">
-                    <p style="margin: 0; font-size: 14px; color: #888;">PRECIO UNITARIO</p>
-                    <h3 style="margin: 0; color: white;">$ {precio_v:,}</h3>
-                </div>
-            """, unsafe_allow_html=True)
+            with col_prec:
+                # Aquí permitimos editar el precio sugerido
+                precio_sugerido = int(info_p['precio'])
+                precio_final = st.number_input("Precio Unitario ($):", value=precio_sugerido, step=500)
 
-        with col_conf:
-            st.markdown("### ⚙️ 2. Detalles")
-            if not df_c.empty:
-                cliente_v = st.selectbox("Cliente / Empresa:", df_c['empresa'].tolist())
-            else:
-                cliente_v = st.text_input("Nombre Cliente (Manual):")
-            
-            cantidad_v = st.number_input("Cantidad a vender:", min_value=1, max_value=stock_v if stock_v > 0 else 1, step=1)
-            metodo_pago = st.selectbox("Método de Pago:", ["Transferencia", "Efectivo", "Nequi/Daviplata"])
+            if st.button("🛒 Agregar al Carrito", use_container_width=True):
+                if stock_disp >= cant_v:
+                    # Añadir al carrito (lista de diccionarios)
+                    item = {
+                        "id": prod_sel,
+                        "nombre": info_p['nombre'],
+                        "tipo": info_p['tipo'],
+                        "cantidad": cant_v,
+                        "precio_u": precio_final,
+                        "subtotal": cant_v * precio_final
+                    }
+                    st.session_state.carrito.append(item)
+                    st.toast(f"Agregado: {info_p['nombre']}")
+                else:
+                    st.error("No hay suficiente stock")
 
-        with col_resumen:
-            st.markdown("### 💳 3. Total")
-            total_venta = precio_v * cantidad_v
+        # --- VISUALIZACIÓN DEL CARRITO Y TOTAL ---
+        if st.session_state.carrito:
+            st.markdown("### 📋 Resumen de la Venta")
+            df_carrito = pd.DataFrame(st.session_state.carrito)
             
-            st.markdown(f"""
-                <div style="background-color: #0e1117; padding: 25px; border-radius: 15px; border: 2px dashed #444; text-align: center;">
-                    <p style="margin: 0; font-size: 16px; color: #888;">TOTAL A COBRAR</p>
-                    <h1 style="margin: 10px 0; color: #2ecc71; font-size: 40px;">$ {total_venta:,}</h1>
-                    <p style="font-size: 12px; color: #666;">{cantidad_v} x {seleccion_v}</p>
-                </div>
-            """, unsafe_allow_html=True)
+            # Mostrar tabla del carrito
+            st.table(df_carrito[['nombre', 'tipo', 'cantidad', 'precio_u', 'subtotal']])
             
-            st.markdown("<br>", unsafe_allow_html=True)
+            total_venta = df_carrito['subtotal'].sum()
             
-            # Botón de acción con validación de stock
-            if stock_v > 0:
-                if st.button("✅ FINALIZAR VENTA", use_container_width=True):
-                    # Lógica de actualización de inventario
-                    idx = df_p[df_p['id_unico'] == seleccion_v].index[0]
-                    df_p.at[idx, 'stock'] = stock_v - cantidad_v
-                    
+            c_cliente, c_pago, c_final = st.columns([1.5, 1, 1])
+            
+            with c_cliente:
+                cliente_v = st.selectbox("Cliente / Empresa:", df_c['empresa'].tolist()) if not df_c.empty else st.text_input("Cliente:")
+            
+            with c_pago:
+                metodo_p = st.selectbox("Método de Pago:", ["Transferencia", "Efectivo", "Nequi/Daviplata"])
+            
+            with c_final:
+                st.markdown(f"### Total: ${total_venta:,}")
+                
+                col_b1, col_b2 = st.columns(2)
+                if col_b1.button("🗑️ Vaciar", use_container_width=True):
+                    st.session_state.carrito = []
+                    st.rerun()
+                
+                if col_b2.button("✅ Cobrar", type="primary", use_container_width=True):
                     try:
-                        # 1. Actualizar Inventario
+                        # 1. ACTUALIZAR STOCK EN DATAFRAME DE PRODUCTOS
+                        for item in st.session_state.carrito:
+                            idx = df_p[df_p['id_unico'] == item['id']].index[0]
+                            df_p.at[idx, 'stock'] -= item['cantidad']
+                        
+                        # 2. PREPARAR REGISTROS PARA EL HISTORIAL DE VENTAS
+                        # (Si tienes pestaña de ventas, aquí se guardan los items)
+                        
+                        # 3. SUBIR A GOOGLE SHEETS
                         conn.update(worksheet="productos", data=df_p.drop(columns=['id_unico']))
                         
-                        # 2. (Opcional) Aquí podrías añadir lógica para guardar en una pestaña "ventas"
-                        
+                        st.success("¡Venta procesada con éxito!")
                         st.balloons()
-                        st.success(f"Venta registrada a {cliente_v}")
+                        st.session_state.carrito = [] # Limpiar carrito
                         import time
                         time.sleep(1.5)
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Error al procesar: {e}")
-            else:
-                st.error("🚫 SIN STOCK DISPONIBLE")
-
-    else:
-        st.info("No hay productos en el catálogo para vender.")
+                        st.error(f"Error al guardar: {e}")
+        else:
+            st.info("El carrito está vacío. Agrega productos arriba.")
 
 # --- MÓDULO 3: ENTRADA PRODUCCIÓN (REDISEÑO PREMIUM) ---
 elif menu == "📥 Entrada Producción":
