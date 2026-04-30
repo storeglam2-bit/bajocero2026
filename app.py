@@ -218,14 +218,34 @@ elif menu == "🛒 Registrar Venta":
                             df_p.at[idx, 'stock'] -= item['cantidad']
                         
                         # 2. PREPARAR REGISTROS PARA EL HISTORIAL DE VENTAS
-                        # (Si tienes pestaña de ventas, aquí se guardan los items)
+                        from datetime import datetime
+                        df_ventas_hist = cargar_datos("ventas")
+                        
+                        nuevos_registros = []
+                        for item in st.session_state.carrito:
+                            nuevos_registros.append({
+                                "fecha": datetime.now().strftime("%Y-%m-%d"),
+                                "cliente": cliente_v,
+                                "producto": item['id'],
+                                "cantidad": item['cantidad'],
+                                "precio_unitario": item['precio_u'],
+                                "total": item['subtotal'],
+                                "metodo": metodo_p
+                            })
+                        
+                        df_actualizado_v = pd.concat([df_ventas_hist, pd.DataFrame(nuevos_registros)], ignore_index=True)
                         
                         # 3. SUBIR A GOOGLE SHEETS
                         conn.update(worksheet="productos", data=df_p.drop(columns=['id_unico']))
+                        conn.update(worksheet="ventas", data=df_actualizado_v)
+                        
+                        # --- EL TRUCO PARA DATOS REALES INMEDIATOS ---
+                        st.cache_data.clear() # Esto borra la memoria vieja y obliga a leer el stock nuevo
                         
                         st.success("¡Venta procesada con éxito!")
                         st.balloons()
                         st.session_state.carrito = [] # Limpiar carrito
+                        
                         import time
                         time.sleep(1.5)
                         st.rerun()
