@@ -3,140 +3,186 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Bajo Cero - Gestión", page_icon="❄️", layout="wide")
+# --- 1. CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(
+    page_title="Bajo Cero - Inventario Pro",
+    page_icon="❄️",
+    layout="wide"
+)
 
-# Conexión con Google Sheets
+# --- 2. CONEXIÓN A GOOGLE SHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Función segura para leer datos
 def cargar_datos(pestana):
     try:
+        # ttl="0" asegura que lea los datos reales de la nube cada vez que refrescas
         return conn.read(worksheet=pestana, ttl="0")
     except Exception as e:
-        st.error(f"Error leyendo la pestaña '{pestana}': {e}")
+        st.error(f"Error en pestaña '{pestana}': {e}")
         return pd.DataFrame()
 
-# --- SIDEBAR ---
-# Intentamos cargar el logo. Si falla, ponemos texto para evitar el error MediaFileStorageError
-try:
-    st.sidebar.image("logo.png", use_container_width=True)
-except Exception:
-    st.sidebar.title("❄️ BAJO CERO")
+# --- 3. DISEÑO DE LA BARRA LATERAL ---
+with st.sidebar:
+    try:
+        # Intenta cargar el logo local
+        st.image("logo.png", use_container_width=True)
+    except:
+        st.title("❄️ BAJO CERO")
+    
+    st.markdown("---")
+    menu = st.radio(
+        "MENÚ DE NAVEGACIÓN",
+        ["📊 Panel Principal", "🛒 Registrar Venta", "📥 Entrada Producción", "🥤 Catálogo Productos", "🏢 Gestión Clientes"]
+    )
+    st.markdown("---")
+    st.caption("Versión Cloud 2.0 - Google Sheets")
 
-menu = st.sidebar.radio("MENÚ", ["📊 Dashboard", "🛒 Ventas", "📥 Entradas", "🥤 Productos", "🏢 Clientes"])
-
-# --- FUNCIÓN PARA CARGAR DATOS ---
-def load_data(sheet_name):
-    # ttl="0" permite ver los cambios realizados por otros usuarios o el celular al instante
-    return conn.read(worksheet=sheet_name, ttl="0")
-
-# --- MÓDULO: DASHBOARD ---
-if menu == "📊 Dashboard":
+# --- 4. MÓDULO: PANEL PRINCIPAL (DASHBOARD) ---
+if menu == "📊 Panel Principal":
     st.title("📊 Resumen de Inventario")
-    df_p = load_data("productos")
+    df_p = cargar_datos("productos")
     
     if not df_p.empty:
-        # Métricas principales sin decimales
-        val_total = int((df_p['stock'] * df_p['precio']).sum())
+        # Cálculo de métricas
+        total_botellas = int(df_p['stock'].sum())
+        valor_inv = int((df_p['stock'] * df_p['precio']).sum())
         
         c1, c2, c3 = st.columns(3)
-        c1.metric("Sabores", len(df_p))
-        c2.metric("Total Líquidos (3L)", int(df_p['stock'].sum()))
-        c3.metric("Valor Inventario", f"$ {val_total:,}".replace(",", "."))
+        c1.metric("Sabores en Catálogo", len(df_p))
+        c2.metric("Stock Total (Botellas)", total_botellas)
+        c3.metric("Valor Inventario", f"$ {valor_inv:,}".replace(",", "."))
         
-        # Alertas de stock bajo (4 o menos)
+        st.markdown("---")
+        
+        # Alertas de Stock Bajo
         criticos = df_p[df_p['stock'] <= 4]
         if not criticos.empty:
-            st.error(f"⚠️ Alerta: {len(criticos)} productos con poco stock.")
+            st.error(f"⚠️ **ATENCIÓN:** Tienes {len(criticos)} sabores con 4 unidades o menos.")
         
-        # Tabla de stock formateada
-        st.subheader("Existencias Actuales")
-        df_p['Sabor'] = df_p['nombre'] + " (" + df_p['tipo'] + ")"
+        # Tabla Principal Formateada
+        st.subheader("📦 Estado Actual del Stock")
+        df_show = df_p.copy()
+        df_show['Producto'] = df_show['nombre'] + " (" + df_show['tipo'] + ")"
         
-        # Estilo para destacar stock bajo en rojo
-        def highlight_low_stock(s):
-            return ['color: #ff4b4b; font-weight: bold' if v <= 4 else 'color: #09ab3b' for v in s]
+        # Aplicar colores al stock
+        def color_stock(val):
+            color = '#ff4b4b' if val <= 4 else '#09ab3b'
+            return f'color: {color}; font-weight: bold'
 
         st.dataframe(
-            df_p[['Sabor', 'stock', 'precio']].style
-            .apply(highlight_low_stock, subset=['stock'])
-            .format({"precio": lambda x: f"$ {int(x):,}".replace(",", ".")}),
+            df_show[['Producto', 'stock', 'precio']].style
+            .applymap(color_stock, subset=['stock'])
+            .format({
+                "precio": lambda x: f"$ {int(x):,}".replace(",", "."),
+                "stock": "{:.0f}"
+            }),
             use_container_width=True, hide_index=True
         )
     else:
-        st.info("La base de datos está vacía.")
+        st.warning("No se encontraron datos. Revisa la conexión con Google Sheets.")
 
-# --- MÓDULO: VENTAS ---
-elif menu == "🛒 Ventas":
-    st.title("🛒 Registrar Venta")
-    df_p = load_data("productos")
-    df_c = load_data("clientes")
+# --- 5. MÓDULO: REGISTRAR VENTA ---
+elif menu == "🛒 Registrar Venta":
+    st.title("🛒 Nueva Venta")
+    df_p = cargar_datos("productos")
+    df_c = cargar_datos("clientes")
     
     if not df_p.empty and not df_c.empty:
         with st.form("venta_form"):
-            cliente = st.selectbox("Cliente", df_c['empresa'])
+            col1, col2 = st.columns(2)
+            cliente = col1.selectbox("Seleccione Cliente", df_c['empresa'])
+            
             df_p['display'] = df_p['nombre'] + " (" + df_p['tipo'] + ")"
-            prod_sel = st.selectbox("Sabor", df_p['display'])
-            cantidad = st.number_input("Cantidad", min_value=1, step=1)
+            prod_sel = col1.selectbox("Producto a vender", df_p['display'])
+            
+            cant = col2.number_input("Cantidad de botellas", min_value=1, step=1)
             
             if st.form_submit_button("Finalizar Venta"):
                 idx = df_p[df_p['display'] == prod_sel].index[0]
-                if df_p.at[idx, 'stock'] >= cantidad:
-                    df_p.at[idx, 'stock'] -= cantidad
-                    # Actualizar productos
+                stock_actual = df_p.at[idx, 'stock']
+                
+                if stock_actual >= cant:
+                    # 1. Descontar de productos
+                    df_p.at[idx, 'stock'] -= cant
                     conn.update(worksheet="productos", data=df_p[['nombre', 'color', 'tipo', 'precio', 'stock']])
                     
-                    # Registrar historial de venta
-                    df_v = load_data("ventas")
-                    nueva_v = pd.DataFrame([{"fecha": datetime.now().strftime("%d/%m/%Y %H:%M"), 
-                                            "producto": prod_sel, "cliente": cliente, "cantidad": cantidad}])
+                    # 2. Registrar en historial de ventas
+                    df_v = cargar_datos("ventas")
+                    nueva_v = pd.DataFrame([{
+                        "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                        "producto": prod_sel,
+                        "cliente": cliente,
+                        "cantidad": cant
+                    }])
                     conn.update(worksheet="ventas", data=pd.concat([df_v, nueva_v], ignore_index=True))
                     
-                    st.success("Venta guardada correctamente.")
+                    st.success(f"✅ Venta exitosa. Quedan {int(stock_actual - cant)} unidades.")
                     st.rerun()
                 else:
-                    st.error("Stock insuficiente.")
+                    st.error(f"❌ Stock insuficiente. Solo tienes {int(stock_actual)} unidades.")
+    else:
+        st.error("Error: Debes tener productos y clientes creados.")
 
-# --- MÓDULO: ENTRADAS ---
-elif menu == "📥 Entradas":
-    st.title("📥 Ingreso de Producción")
-    df_p = load_data("productos")
+# --- 6. MÓDULO: ENTRADA PRODUCCIÓN ---
+elif menu == "📥 Entrada Producción":
+    st.title("📥 Registro de Ingreso")
+    df_p = cargar_datos("productos")
     
     with st.form("entrada_form"):
         df_p['display'] = df_p['nombre'] + " (" + df_p['tipo'] + ")"
-        prod_sel = st.selectbox("Sabor que ingresa", df_p['display'])
-        cantidad = st.number_input("Cantidad de botellas", min_value=1, step=1)
+        prod_sel = st.selectbox("Sabor que ingresa a bodega", df_p['display'])
+        cant = st.number_input("Cantidad de botellas nuevas", min_value=1, step=1)
         
-        if st.form_submit_button("Registrar Ingreso"):
+        if st.form_submit_button("Registrar Entrada"):
             idx = df_p[df_p['display'] == prod_sel].index[0]
-            df_p.at[idx, 'stock'] += cantidad
+            df_p.at[idx, 'stock'] += cant
+            
+            # Guardar actualización
             conn.update(worksheet="productos", data=df_p[['nombre', 'color', 'tipo', 'precio', 'stock']])
-            st.success("Stock actualizado en la nube.")
+            
+            # Registrar historial de ingresos
+            df_i = cargar_datos("ingresos")
+            nuevo_i = pd.DataFrame([{
+                "fecha": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                "producto": prod_sel,
+                "cantidad": cant
+            }])
+            conn.update(worksheet="ingresos", data=pd.concat([df_i, nuevo_i], ignore_index=True))
+            
+            st.success("✅ Stock actualizado correctamente.")
             st.rerun()
 
-# --- MÓDULO: PRODUCTOS ---
-elif menu == "🥤 Productos":
-    st.title("🥤 Catálogo")
-    df_p = load_data("productos")
-    with st.expander("Crear Nuevo Producto"):
-        n = st.text_input("Nombre")
-        t = st.selectbox("Tipo", ["Sin Licor", "Con Licor"])
-        p = st.number_input("Precio", min_value=0, step=500)
-        if st.button("Añadir"):
-            new_p = pd.DataFrame([{"nombre": n, "color": "#000", "tipo": t, "precio": p, "stock": 0}])
-            conn.update(worksheet="productos", data=pd.concat([df_p, new_p], ignore_index=True))
+# --- 7. MÓDULO: CATÁLOGO PRODUCTOS ---
+elif menu == "🥤 Catálogo Productos":
+    st.title("🥤 Gestión de Productos")
+    df_p = cargar_datos("productos")
+    
+    with st.expander("✨ Crear Nuevo Sabor"):
+        c1, c2 = st.columns(2)
+        n = c1.text_input("Nombre del Líquido")
+        t = c1.selectbox("Tipo", ["Sin Licor", "Con Licor"])
+        p = c2.number_input("Precio de Venta (COP)", min_value=0, step=500)
+        
+        if st.button("Guardar Producto"):
+            new_row = pd.DataFrame([{"nombre": n, "color": "#000", "tipo": t, "precio": p, "stock": 0}])
+            conn.update(worksheet="productos", data=pd.concat([df_p, new_row], ignore_index=True))
+            st.success("Sabor añadido.")
             st.rerun()
-    st.dataframe(df_p, use_container_width=True)
+            
+    st.subheader("Listado Actual")
+    st.dataframe(df_p[['nombre', 'tipo', 'precio', 'stock']], use_container_width=True)
 
-# --- MÓDULO: CLIENTES ---
-elif menu == "🏢 Clientes":
-    st.title("🏢 Clientes")
-    df_c = load_data("clientes")
-    with st.form("cli"):
-        nom = st.text_input("Nombre Empresa")
-        if st.form_submit_button("Guardar"):
-            new_c = pd.DataFrame([{"empresa": nom}])
-            conn.update(worksheet="clientes", data=pd.concat([df_c, new_c], ignore_index=True))
+# --- 8. MÓDULO: GESTIÓN CLIENTES ---
+elif menu == "🏢 Gestión Clientes":
+    st.title("🏢 Clientes Registrados")
+    df_c = cargar_datos("clientes")
+    
+    with st.form("cli_form"):
+        nuevo_c = st.text_input("Nombre de la Empresa / Cliente")
+        if st.form_submit_button("Registrar Cliente"):
+            new_row = pd.DataFrame([{"empresa": nuevo_c}])
+            conn.update(worksheet="clientes", data=pd.concat([df_c, new_row], ignore_index=True))
+            st.success("Cliente guardado.")
             st.rerun()
+            
     st.table(df_c)
