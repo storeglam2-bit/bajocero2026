@@ -165,11 +165,24 @@ elif menu == "🥤 Catálogo Productos":
             t = st.selectbox("Categoría", ["Sin Licor", "Con Licor"])
             p = st.number_input("Precio de Venta", min_value=0, step=1000)
             if st.form_submit_button("Añadir al Catálogo"):
-                nueva_f = pd.DataFrame([{"nombre": n, "color": "#000", "tipo": t, "precio": int(p), "stock": 0}])
-                df_res = pd.concat([df_p, nueva_f], ignore_index=True) if not df_p.empty else nueva_f
+                # Limpiamos los datos antes de enviar
+                nueva_f = pd.DataFrame([{
+                    "nombre": str(n),
+                    "color": "#000",
+                    "tipo": str(t),
+                    "precio": int(p),
+                    "stock": 0
+                }])
+    
+            # Unimos y nos aseguramos de que no haya valores nulos
+            df_res = pd.concat([df_p, nueva_f], ignore_index=True).fillna(0)
+    
+            try:
                 conn.update(worksheet="productos", data=df_res)
-                st.success("Sabor guardado con éxito.")
+                st.success("✅ Sabor guardado con éxito.")
                 st.rerun()
+            except Exception as e:
+                st.error(f"Error de permisos: Asegúrate de que la Service Account sea Editor en el Excel.")
     
     if not df_p.empty:
         st.dataframe(df_p[['nombre', 'tipo', 'precio', 'stock']], use_container_width=True, hide_index=True)
