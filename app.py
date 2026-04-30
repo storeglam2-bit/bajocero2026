@@ -42,7 +42,7 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# --- MÓDULO 1: PANEL PRINCIPAL (VERSIÓN PROFESIONAL) ---
+# --- MÓDULO 1: PANEL PRINCIPAL (VERSIÓN ESTÉTICA PREMIUM) ---
 if menu == "📊 Panel Principal":
     st.title("📊 Resumen de Inventario")
     df_p = cargar_datos("productos")
@@ -52,7 +52,7 @@ if menu == "📊 Panel Principal":
         df_p['stock'] = pd.to_numeric(df_p['stock'], errors='coerce').fillna(0).astype(int)
         df_p['precio'] = pd.to_numeric(df_p['precio'], errors='coerce').fillna(0).astype(int)
         
-        # Cálculos de inventario
+        # Cálculos
         df_sin = df_p[df_p['tipo'].str.contains("Sin", case=False, na=False)]
         df_con = df_p[df_p['tipo'].str.contains("Con", case=False, na=False)]
         
@@ -66,31 +66,35 @@ if menu == "📊 Panel Principal":
         m2.metric("🥤 Total Sin Licor", f"{total_stock_sin} und")
         m3.metric("🍸 Total Con Licor", f"{total_stock_con} und")
         
-        # --- SECCIÓN DE ALERTAS ESTÉTICAS ---
+        # --- SECCIÓN DE ALERTAS REFINADAS ---
         df_alerta = df_p[df_p['stock'] <= 4].sort_values('stock')
         
         if not df_alerta.empty:
-            st.markdown("#### 🚨 Disponibilidad Crítica")
-            # Creamos una fila de "badges" o etiquetas pequeñas
-            cols_alerta = st.columns(len(df_alerta) if len(df_alerta) <= 4 else 4)
+            st.markdown("---")
+            st.markdown("<p style='color: #ff4b4b; font-weight: bold; margin-bottom: 10px;'>🚨 DISPONIBILIDAD CRÍTICA</p>", unsafe_allow_html=True)
+            
+            # Ajustamos el tamaño a 5 columnas para que los badges sean más pequeños y horizontales
+            cols_alerta = st.columns(5)
             
             for i, (_, fila) in enumerate(df_alerta.iterrows()):
-                # Usamos HTML para un diseño tipo "píldora" profesional
+                # Diseño: Fondo oscuro, borde rojo suave, texto blanco/rojo
                 badge_html = f"""
                 <div style="
-                    background-color: #4a1111; 
-                    color: #ff4b4b; 
-                    padding: 8px 12px; 
-                    border-radius: 10px; 
+                    background-color: #1e1e1e; 
+                    color: #ffffff; 
+                    padding: 5px 10px; 
+                    border-radius: 6px; 
                     border: 1px solid #ff4b4b;
-                    margin-bottom: 10px;
-                    font-size: 14px;
-                    text-align: center;">
-                    <strong>{fila['nombre']}</strong><br>
-                    {fila['stock']} unidades
+                    margin-bottom: 5px;
+                    font-size: 13px;
+                    text-align: center;
+                    line-height: 1.2;">
+                    <span style="color: #ff4b4b; font-weight: bold;">{fila['nombre']}</span><br>
+                    <span style="font-size: 11px; opacity: 0.8;">{fila['stock']} unidades</span>
                 </div>
                 """
-                with cols_alerta[i % 4]:
+                # Usamos el operador módulo (%) para repartir en las columnas
+                with cols_alerta[i % 5]:
                     st.markdown(badge_html, unsafe_allow_html=True)
         
         st.markdown("---")
@@ -100,44 +104,14 @@ if menu == "📊 Panel Principal":
         
         with col1:
             st.subheader("🥤 Detalle Sin Licor")
-            st.metric("Variedades", len(df_sin))
             st.dataframe(df_sin[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
 
         with col2:
             st.subheader("🍸 Detalle Con Licor")
-            st.metric("Variedades", len(df_con))
             st.dataframe(df_con[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
             
     else:
         st.info("No hay productos registrados.")
-
-# --- MÓDULO 2: REGISTRAR VENTA ---
-elif menu == "🛒 Registrar Venta":
-    st.title("🛒 Nueva Venta")
-    df_p = cargar_datos("productos")
-    df_c = cargar_datos("clientes")
-    
-    if not df_p.empty and not df_c.empty:
-        with st.form("form_venta"):
-            col1, col2 = st.columns(2)
-            cli = col1.selectbox("Seleccionar Cliente", df_c['empresa'].tolist() if 'empresa' in df_c.columns else [])
-            prod_sel = col1.selectbox("Seleccionar Sabor", df_p['nombre'].tolist())
-            cant = col2.number_input("Cantidad", min_value=1, step=1)
-            
-            if st.form_submit_button("Confirmar Venta"):
-                idx = df_p[df_p['nombre'] == prod_sel].index[0]
-                stock_act = int(df_p.at[idx, 'stock'])
-                
-                if stock_act >= cant:
-                    df_p.at[idx, 'stock'] = stock_act - cant
-                    try:
-                        conn.update(worksheet="productos", data=df_p)
-                        st.success("✅ Venta registrada y stock actualizado.")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error al actualizar: {e}")
-                else:
-                    st.error(f"❌ Stock insuficiente (Disponible: {stock_act})")
 
 # --- MÓDULO 3: ENTRADA PRODUCCIÓN (CORREGIDO) ---
 elif menu == "📥 Entrada Producción":
