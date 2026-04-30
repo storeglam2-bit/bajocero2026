@@ -102,26 +102,44 @@ elif menu == "🛒 Registrar Venta":
                 else:
                     st.error(f"❌ Stock insuficiente (Disponible: {stock_act})")
 
-# --- MÓDULO 3: ENTRADA PRODUCCIÓN ---
+# --- MÓDULO 3: ENTRADA PRODUCCIÓN (CON DIFERENCIACIÓN) ---
 elif menu == "📥 Entrada Producción":
     st.title("📥 Ingreso de Producción")
     df_p = cargar_datos("productos")
     
     if not df_p.empty:
+        # Creamos una etiqueta amigable que incluya el tipo para no confundirse
+        df_p['etiqueta'] = df_p['nombre'] + " (" + df_p['tipo'] + ")"
+        
         with st.form("form_entrada"):
-            prod_sel = st.selectbox("Sabor Producido", df_p['nombre'].tolist())
-            cantidad = st.number_input("Botellas nuevas", min_value=1, step=1)
+            # El usuario ahora ve "Sabor (Tipo)" en la lista desplegable
+            opcion_sel = st.selectbox(
+                "Seleccionar Sabor producido", 
+                options=df_p['etiqueta'].tolist(),
+                help="Diferencia aquí los sabores Sin Licor y Con Licor"
+            )
+            
+            cantidad = st.number_input("Cantidad de botellas nuevas", min_value=1, step=1)
             
             if st.form_submit_button("Sumar al Inventario"):
-                idx = df_p[df_p['nombre'] == prod_sel].index[0]
+                # Buscamos el sabor original basado en la etiqueta seleccionada
+                nombre_real = df_p[df_p['etiqueta'] == opcion_sel]['nombre'].values[0]
+                idx = df_p[df_p['nombre'] == nombre_real].index[0]
+                
+                # Sumamos la producción al stock actual
                 df_p.at[idx, 'stock'] = int(df_p.at[idx, 'stock']) + cantidad
                 
+                # Eliminamos la columna temporal de etiqueta antes de guardar
+                df_para_guardar = df_p.drop(columns=['etiqueta'])
+                
                 try:
-                    conn.update(worksheet="productos", data=df_p)
-                    st.success("✅ Stock actualizado en la nube.")
+                    conn.update(worksheet="productos", data=df_para_guardar)
+                    st.success(f"✅ ¡Stock actualizado! Se sumaron {cantidad} botellas a {nombre_real}.")
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Error de permisos: {e}")
+                    st.error(f"Error al guardar: {e}")
+    else:
+        st.warning("⚠️ Primero debes agregar sabores en el 'Catálogo de Productos'.")
 
 # --- MÓDULO 4: CATÁLOGO PRODUCTOS (Solución a UnsupportedOperationError) ---
 elif menu == "🥤 Catálogo Productos":
