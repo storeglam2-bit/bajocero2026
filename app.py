@@ -368,3 +368,74 @@ elif menu == "🏢 Gestión Clientes":
         
         df_filtrado.columns = ["NOMBRE DE LA EMPRESA"]
         st.dataframe(df_filtrado.sort_values("NOMBRE DE LA EMPRESA"), use_container_width=True, hide_index=True)
+
+# --- MÓDULO 6: HISTORIAL DE VENTAS (CENTRO DE CONTROL) ---
+elif menu == "📋 Historial de Ventas":
+    st.markdown("<h1 style='text-align: center;'>📋 Registro Histórico de Ventas</h1>", unsafe_allow_html=True)
+    
+    df_v = cargar_datos("ventas")
+    
+    if not df_v.empty:
+        # Asegurar formatos de datos
+        df_v['total'] = pd.to_numeric(df_v['total'], errors='coerce').fillna(0)
+        df_v['fecha'] = pd.to_datetime(df_v['fecha']).dt.date
+        
+        # --- FILTROS INTELIGENTES ---
+        st.markdown("### 🔍 Filtros de Búsqueda")
+        f1, f2, f3 = st.columns(3)
+        
+        with f1:
+            filtro_cliente = st.multiselect("Filtrar por Cliente:", options=df_v['cliente'].unique())
+        with f2:
+            filtro_metodo = st.multiselect("Método de Pago:", options=df_v['metodo'].unique())
+        with f3:
+            # Rango de fechas
+            fecha_min = df_v['fecha'].min()
+            fecha_max = df_v['fecha'].max()
+            rango = st.date_input("Rango de Fechas:", [fecha_min, fecha_max])
+
+        # Aplicar Filtros
+        df_filtrado = df_v.copy()
+        if filtro_cliente:
+            df_filtrado = df_filtrado[df_filtrado['cliente'].isin(filtro_cliente)]
+        if filtro_metodo:
+            df_filtrado = df_filtrado[df_filtrado['metodo'].isin(filtro_metodo)]
+        if len(rango) == 2:
+            df_filtrado = df_filtrado[(df_filtrado['fecha'] >= rango[0]) & (df_filtrado['fecha'] <= rango[1])]
+
+        st.markdown("---")
+
+        # --- MÉTRICAS DE VENTAS FILTRADAS ---
+        m1, m2, m3 = st.columns(3)
+        total_dinero = df_filtrado['total'].sum()
+        total_unidades = df_filtrado['cantidad'].sum()
+        ticket_promedio = total_dinero / len(df_filtrado) if len(df_filtrado) > 0 else 0
+
+        m1.metric("💰 Ingresos Totales", f"$ {total_dinero:,.0f}".replace(",", "."))
+        m2.metric("📦 Unidades Vendidas", f"{total_unidades} und")
+        m3.metric("📈 Ticket Promedio", f"$ {ticket_promedio:,.0f}".replace(",", "."))
+
+        # --- TABLA DE DATOS ESTILIZADA ---
+        st.markdown("### 📄 Detalle de Movimientos")
+        
+        # Formatear columnas para la vista
+        df_v_style = df_filtrado.copy()
+        df_v_style.columns = [c.upper() for c in df_v_style.columns]
+        
+        st.dataframe(
+            df_v_style.sort_values(by="FECHA", ascending=False),
+            use_container_width=True,
+            hide_index=True
+        )
+
+        # --- BOTÓN PARA DESCARGAR ---
+        csv = df_filtrado.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Descargar Reporte en CSV",
+            data=csv,
+            file_name='ventas_bajo_cero.csv',
+            mime='text/csv',
+        )
+
+    else:
+        st.info("Aún no se han registrado ventas en el sistema.")
