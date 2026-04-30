@@ -42,9 +42,9 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# --- MÓDULO 1: PANEL PRINCIPAL (TAMAÑO ORIGINAL CON COLORES REFINADOS) ---
+# --- MÓDULO 1: PANEL PRINCIPAL (VERSION PREMIUM CENTRALIZADA) ---
 if menu == "📊 Panel Principal":
-    st.title("📊 Resumen de Inventario")
+    st.markdown("<h1 style='text-align: center;'>📊 Resumen de Inventario</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
     
     if not df_p.empty:
@@ -52,7 +52,7 @@ if menu == "📊 Panel Principal":
         df_p['stock'] = pd.to_numeric(df_p['stock'], errors='coerce').fillna(0).astype(int)
         df_p['precio'] = pd.to_numeric(df_p['precio'], errors='coerce').fillna(0).astype(int)
         
-        # Cálculos
+        # Cálculos de métricas
         df_sin = df_p[df_p['tipo'].str.contains("Sin", case=False, na=False)]
         df_con = df_p[df_p['tipo'].str.contains("Con", case=False, na=False)]
         
@@ -66,31 +66,46 @@ if menu == "📊 Panel Principal":
         m2.metric("🥤 Total Sin Licor", f"{total_stock_sin} und")
         m3.metric("🍸 Total Con Licor", f"{total_stock_con} und")
         
-        # --- SECCIÓN DE ALERTAS (TAMAÑO AMPLIO - COLORES ELEGANTES) ---
+        # --- SECCIÓN DE DISPONIBILIDAD CRÍTICA CENTRALIZADA ---
         df_alerta = df_p[df_p['stock'] <= 4].sort_values('stock')
         
         if not df_alerta.empty:
             st.markdown("---")
-            st.markdown("<h3 style='color: #ff4b4b; font-size: 20px;'>🚨 Disponibilidad Crítica</h3>", unsafe_allow_html=True)
+            # Título centralizado con un color Cian/Azul Hielo profesional
+            st.markdown("""
+                <div style='text-align: center; margin-bottom: 20px;'>
+                    <h3 style='color: #00f2fe; font-size: 24px; margin-bottom: 0;'>🧊 DISPONIBILIDAD CRÍTICA</h3>
+                    <p style='color: #888; font-size: 14px;'>Reponer estos sabores de inmediato</p>
+                </div>
+            """, unsafe_allow_html=True)
             
-            # Usamos 4 columnas para mantener el tamaño grande de las tarjetas
             cols_alerta = st.columns(4)
             
             for i, (_, fila) in enumerate(df_alerta.iterrows()):
-                # Diseño: Fondo oscuro premium, borde coral, tamaño cómodo
+                # Lógica de Iconos visuales según el stock
+                if fila['stock'] == 0:
+                    icon = "🚫"  # Agotado total
+                    color_status = "#ff4b4b"
+                elif fila['stock'] <= 2:
+                    icon = "⚠️"  # Riesgo alto
+                    color_status = "#ffa500"
+                else:
+                    icon = "📉"  # Bajando
+                    color_status = "#00f2fe"
+
                 badge_html = f"""
                 <div style="
                     background-color: #1a1a1a; 
-                    color: #ffffff; 
-                    padding: 20px; 
-                    border-radius: 12px; 
-                    border: 1px solid #ff4b4b;
-                    margin-bottom: 15px;
+                    padding: 18px; 
+                    border-radius: 15px; 
+                    border: 1px solid {color_status};
                     text-align: center;
-                    box-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
-                    <p style="margin: 0; font-size: 18px; font-weight: bold; color: #ff4b4b;">{fila['nombre']}</p>
-                    <p style="margin: 5px 0 0 0; font-size: 16px; opacity: 0.9;">{fila['stock']} unidades restantes</p>
-                    <p style="margin: 0; font-size: 12px; opacity: 0.6; text-transform: uppercase;">{fila['tipo']}</p>
+                    margin-bottom: 15px;
+                    box-shadow: 0px 4px 15px rgba(0,0,0,0.3);">
+                    <div style="font-size: 30px; margin-bottom: 10px;">{icon}</div>
+                    <p style="margin: 0; font-size: 16px; font-weight: bold; color: white;">{fila['nombre']}</p>
+                    <p style="margin: 5px 0; font-size: 20px; color: {color_status}; font-weight: bold;">{fila['stock']} <span style='font-size: 12px;'>UND</span></p>
+                    <p style="margin: 0; font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 1px;">{fila['tipo']}</p>
                 </div>
                 """
                 with cols_alerta[i % 4]:
@@ -100,15 +115,12 @@ if menu == "📊 Panel Principal":
 
         # --- TABLAS DETALLADAS ---
         col1, col2 = st.columns(2)
-        
         with col1:
             st.subheader("🥤 Detalle Sin Licor")
             st.dataframe(df_sin[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
-
         with col2:
             st.subheader("🍸 Detalle Con Licor")
             st.dataframe(df_con[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
-            
     else:
         st.info("No hay productos registrados.")
 
