@@ -133,6 +133,94 @@ if menu == "📊 Panel Principal":
     else:
         st.info("No hay productos registrados.")
 
+# --- MÓDULO 2: REGISTRAR VENTA (SISTEMA POS PREMIUM) ---
+elif menu == "🛒 Registrar Venta":
+    st.markdown("<h1 style='text-align: center;'>🛒 Registro de Ventas</h1>", unsafe_allow_html=True)
+    
+    # Carga de datos de productos y clientes
+    df_p = cargar_datos("productos")
+    df_c = cargar_datos("clientes")
+    
+    if not df_p.empty:
+        # Asegurar tipos de datos
+        df_p['stock'] = pd.to_numeric(df_p['stock'], errors='coerce').fillna(0).astype(int)
+        df_p['precio'] = pd.to_numeric(df_p['precio'], errors='coerce').fillna(0).astype(int)
+        df_p['id_unico'] = df_p['nombre'] + " - " + df_p['tipo']
+
+        # --- DISEÑO EN 3 COLUMNAS ---
+        col_prod, col_conf, col_resumen = st.columns([1.5, 1.2, 1.3])
+
+        with col_prod:
+            st.markdown("### 🔍 1. Producto")
+            seleccion_v = st.selectbox("Seleccionar Sabor:", df_p['id_unico'].tolist())
+            
+            # Info del producto seleccionado
+            info_v = df_p[df_p['id_unico'] == seleccion_v].iloc[0]
+            stock_v = info_v['stock']
+            precio_v = info_v['precio']
+            
+            # Tarjeta de estado de stock
+            color_stock = "#ff4b4b" if stock_v <= 4 else "#00f2fe"
+            st.markdown(f"""
+                <div style="background-color: #1a1a1a; padding: 20px; border-radius: 15px; border: 1px solid {color_stock};">
+                    <p style="margin: 0; font-size: 14px; color: #888;">DISPONIBLE</p>
+                    <h2 style="margin: 0; color: {color_stock};">{stock_v} <span style="font-size: 15px;">unidades</span></h2>
+                    <hr style="margin: 10px 0; border: 0.5px solid #333;">
+                    <p style="margin: 0; font-size: 14px; color: #888;">PRECIO UNITARIO</p>
+                    <h3 style="margin: 0; color: white;">$ {precio_v:,}</h3>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with col_conf:
+            st.markdown("### ⚙️ 2. Detalles")
+            if not df_c.empty:
+                cliente_v = st.selectbox("Cliente / Empresa:", df_c['empresa'].tolist())
+            else:
+                cliente_v = st.text_input("Nombre Cliente (Manual):")
+            
+            cantidad_v = st.number_input("Cantidad a vender:", min_value=1, max_value=stock_v if stock_v > 0 else 1, step=1)
+            metodo_pago = st.selectbox("Método de Pago:", ["Transferencia", "Efectivo", "Nequi/Daviplata"])
+
+        with col_resumen:
+            st.markdown("### 💳 3. Total")
+            total_venta = precio_v * cantidad_v
+            
+            st.markdown(f"""
+                <div style="background-color: #0e1117; padding: 25px; border-radius: 15px; border: 2px dashed #444; text-align: center;">
+                    <p style="margin: 0; font-size: 16px; color: #888;">TOTAL A COBRAR</p>
+                    <h1 style="margin: 10px 0; color: #2ecc71; font-size: 40px;">$ {total_venta:,}</h1>
+                    <p style="font-size: 12px; color: #666;">{cantidad_v} x {seleccion_v}</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Botón de acción con validación de stock
+            if stock_v > 0:
+                if st.button("✅ FINALIZAR VENTA", use_container_width=True):
+                    # Lógica de actualización de inventario
+                    idx = df_p[df_p['id_unico'] == seleccion_v].index[0]
+                    df_p.at[idx, 'stock'] = stock_v - cantidad_v
+                    
+                    try:
+                        # 1. Actualizar Inventario
+                        conn.update(worksheet="productos", data=df_p.drop(columns=['id_unico']))
+                        
+                        # 2. (Opcional) Aquí podrías añadir lógica para guardar en una pestaña "ventas"
+                        
+                        st.balloons()
+                        st.success(f"Venta registrada a {cliente_v}")
+                        import time
+                        time.sleep(1.5)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al procesar: {e}")
+            else:
+                st.error("🚫 SIN STOCK DISPONIBLE")
+
+    else:
+        st.info("No hay productos en el catálogo para vender.")
+
 # --- MÓDULO 3: ENTRADA PRODUCCIÓN (REDISEÑO PREMIUM) ---
 elif menu == "📥 Entrada Producción":
     st.markdown("<h1 style='text-align: center;'>📥 Ingreso de Producción</h1>", unsafe_allow_html=True)
