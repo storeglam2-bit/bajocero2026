@@ -244,23 +244,70 @@ elif menu == "🥤 Catálogo Productos":
     else:
         st.info("Aún no tienes productos registrados. ¡Usa el botón de arriba para empezar!")
 
-# --- MÓDULO 5: GESTIÓN CLIENTES ---
+# --- MÓDULO 5: GESTIÓN CLIENTES (REDISEÑO PROFESIONAL) ---
 elif menu == "🏢 Gestión Clientes":
-    st.title("🏢 Base de Datos de Clientes")
+    st.markdown("<h1 style='text-align: center;'>🏢 Directorio de Clientes</h1>", unsafe_allow_html=True)
     df_c = cargar_datos("clientes")
     
-    with st.form("form_cli"):
-        nombre_c = st.text_input("Nombre del Cliente o Empresa")
-        if st.form_submit_button("Registrar Cliente"):
-            if nombre_c:
-                nueva_c = pd.DataFrame([{"empresa": nombre_c}])
-                df_res_c = pd.concat([df_c, nueva_c], ignore_index=True) if not df_c.empty else nueva_c
-                try:
-                    conn.update(worksheet="clientes", data=df_res_c)
-                    st.success("✅ Cliente guardado.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Error: {e}")
-            
+    # --- MÉTRICAS DE CLIENTES ---
     if not df_c.empty:
-        st.table(df_c)
+        c1, c2 = st.columns(2)
+        total_clientes = len(df_c)
+        c1.metric("Clientes Registrados", f"{total_clientes} 👤")
+        # Simulación de crecimiento o mensaje de estado
+        c2.info("💡 Consejo: Mantén los nombres estandarizados para evitar duplicados en las facturas.")
+    
+    st.markdown("---")
+
+    # --- FORMULARIO DE REGISTRO ESTILIZADO ---
+    with st.expander("➕ REGISTRAR NUEVO CLIENTE O EMPRESA", expanded=False):
+        with st.form("form_cli", clear_on_submit=True):
+            col_form1, col_form2 = st.columns([2, 1])
+            
+            with col_form1:
+                nombre_c = st.text_input("🏢 Nombre Comercial / Razón Social", placeholder="Ej: Licorería El Faro")
+            
+            with col_form2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                submit_cli = st.form_submit_button("💾 GUARDAR CLIENTE", use_container_width=True)
+            
+            if submit_cli:
+                if nombre_c:
+                    # Limpiamos el nombre para consistencia
+                    nombre_limpio = nombre_c.strip().upper()
+                    
+                    # Verificamos si ya existe
+                    if not df_c.empty and nombre_limpio in df_c['empresa'].str.upper().values:
+                        st.warning(f"⚠️ El cliente '{nombre_limpio}' ya existe en la base de datos.")
+                    else:
+                        nueva_c = pd.DataFrame([{"empresa": nombre_limpio}])
+                        df_res_c = pd.concat([df_c, nueva_c], ignore_index=True) if not df_c.empty else nueva_c
+                        
+                        try:
+                            conn.update(worksheet="clientes", data=df_res_c)
+                            st.success(f"✅ '{nombre_limpio}' ha sido registrado correctamente.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ Error de permisos o conexión: {e}")
+                else:
+                    st.error("⚠️ Debes ingresar un nombre para realizar el registro.")
+
+    # --- VISUALIZACIÓN DE BASE DE DATOS ---
+    st.markdown("### 📋 Listado de Aliados Comerciales")
+    if not df_c.empty:
+        # Buscador rápido
+        busqueda = st.text_input("🔍 Buscar cliente...", placeholder="Escribe el nombre aquí...")
+        
+        df_filtrado = df_c.copy()
+        if busqueda:
+            df_filtrado = df_filtrado[df_filtrado['empresa'].str.contains(busqueda, case=False, na=False)]
+        
+        # Mostramos como dataframe estilizado (mejor que st.table)
+        df_filtrado.columns = ["NOMBRE DE LA EMPRESA"]
+        st.dataframe(
+            df_filtrado.sort_values("NOMBRE DE LA EMPRESA"), 
+            use_container_width=True, 
+            hide_index=True
+        )
+    else:
+        st.info("No hay clientes registrados aún.")
