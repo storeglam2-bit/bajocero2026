@@ -36,7 +36,7 @@ with st.sidebar:
     st.markdown("---")
     menu = st.radio(
         "MENÚ DE NAVEGACIÓN",
-        ["📊 Panel Principal", "🛒 Registrar Venta", "📥 Entrada Producción", "🥤 Catálogo Productos", "🏢 Gestión Clientes"]
+        ["📊 Panel Principal", "🛒 Registrar Venta", "📥 Entrada Producción", "🥤 Catálogo Productos", "🏢 Gestión Clientes", "📋 Historial de Ventas"]
     )
     st.markdown("---")
     if st.button("🔄 Refrescar Datos"):
