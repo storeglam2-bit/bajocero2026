@@ -133,116 +133,77 @@ if menu == "📊 Panel Principal":
     else:
         st.info("No hay productos registrados.")
 
-# --- MÓDULO 3: ENTRADA PRODUCCIÓN (CORREGIDO) ---
+# --- MÓDULO 3: ENTRADA PRODUCCIÓN (REDISEÑO PREMIUM) ---
 elif menu == "📥 Entrada Producción":
-    st.title("📥 Ingreso de Producción")
+    st.markdown("<h1 style='text-align: center;'>📥 Ingreso de Producción</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
     
     if not df_p.empty:
-        # 1. CREAMOS UNA IDENTIFICACIÓN ÚNICA (Nombre + Tipo)
-        # Esto evita que 'Fresa' (Sin Licor) se sume en 'Fresa' (Con Licor)
+        # Asegurar tipos de datos para evitar errores de cálculo
+        df_p['stock'] = pd.to_numeric(df_p['stock'], errors='coerce').fillna(0).astype(int)
         df_p['id_unico'] = df_p['nombre'].astype(str) + " - " + df_p['tipo'].astype(str)
         
-        with st.form("form_entrada"):
-            st.info("Selecciona el sabor específico para asegurar que el stock se sume correctamente.")
-            
-            # El selector ahora muestra el nombre y el tipo claramente
+        # --- SECCIÓN DE VISTA PREVIA ---
+        st.markdown("### 🔍 Estado Actual del Sabor")
+        col_sel, col_info = st.columns([2, 1])
+        
+        with col_sel:
             seleccion = st.selectbox(
-                "Sabor y Categoría", 
-                options=df_p['id_unico'].tolist()
+                "Busca y selecciona el sabor que acabas de producir:", 
+                options=df_p['id_unico'].tolist(),
+                help="Elige el sabor exacto para actualizar su inventario."
             )
             
-            cantidad = st.number_input("Botellas nuevas producidas", min_value=1, step=1)
+        # Extraer info del sabor seleccionado para mostrar una tarjeta visual
+        datos_sabor = df_p[df_p['id_unico'] == seleccion].iloc[0]
+        stock_hoy = datos_sabor['stock']
+        tipo_sabor = datos_sabor['tipo']
+        
+        with col_info:
+            # Tarjeta visual del stock actual antes de la carga
+            color_tarjeta = "#00f2fe" if "Sin" in tipo_sabor else "#ff4b4b"
+            st.markdown(f"""
+                <div style="background-color: #1a1a1a; padding: 15px; border-radius: 10px; border-left: 5px solid {color_tarjeta}; text-align: center;">
+                    <p style="margin: 0; font-size: 14px; color: #888;">STOCK ACTUAL</p>
+                    <h2 style="margin: 0; color: white;">{stock_hoy} <span style="font-size: 15px;">und</span></h2>
+                </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        # --- FORMULARIO DE CARGA ---
+        with st.form("form_entrada_pro", clear_on_submit=True):
+            st.markdown("### 📦 Registro de Nueva Tanda")
+            c1, c2 = st.columns(2)
             
-            if st.form_submit_button("Actualizar Inventario"):
-                # 2. LOCALIZAMOS LA FILA EXACTA usando el ID ÚNICO
+            with c1:
+                cantidad = st.number_input("Cantidad de botellas producidas:", min_value=1, step=1, help="Ingresa solo el número de botellas nuevas.")
+            
+            with c2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                confirmar = st.form_submit_button("🚀 ACTUALIZAR INVENTARIO", use_container_width=True)
+            
+            if confirmar:
                 idx = df_p[df_p['id_unico'] == seleccion].index[0]
+                nuevo_total = stock_hoy + cantidad
+                df_p.at[idx, 'stock'] = nuevo_total
                 
-                # Realizamos la suma
-                stock_actual = int(df_p.at[idx, 'stock'])
-                df_p.at[idx, 'stock'] = stock_actual + cantidad
-                
-                # 3. LIMPIEZA ANTES DE GUARDAR
-                # Eliminamos la columna temporal 'id_unico' para no ensuciar el Excel
+                # Limpieza de columna temporal
                 df_para_enviar = df_p.drop(columns=['id_unico'])
                 
                 try:
-                    conn.update(worksheet="productos", data=df_para_enviar)
-                    st.success(f"✅ Se sumaron {cantidad} unidades a: {seleccion}")
+                    with st.spinner("Sincronizando con la nube..."):
+                        conn.update(worksheet="productos", data=df_para_enviar)
+                    st.balloons()
+                    st.success(f"✅ ¡Inventario Actualizado! {seleccion} ahora tiene {nuevo_total} unidades.")
+                    # Pequeña pausa para que el usuario vea el mensaje antes de recargar
+                    import time
+                    time.sleep(2)
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Error al conectar con Google Sheets: {e}")
+                    st.error(f"❌ Error de conexión: {e}")
     else:
-        st.warning("⚠️ No hay productos en el catálogo para actualizar.")
-
-# --- MÓDULO 4: CATÁLOGO PRODUCTOS (REDISEÑO PROFESIONAL) ---
-elif menu == "🥤 Catálogo Productos":
-    st.markdown("<h1 style='text-align: center;'>🥤 Gestión de Catálogo</h1>", unsafe_allow_html=True)
-    df_p = cargar_datos("productos")
-    
-    # --- MÉTRICAS RÁPIDAS DEL CATÁLOGO ---
-    if not df_p.empty:
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Sabores Totales", len(df_p))
-        c2.metric("Variedades Sin Licor", len(df_p[df_p['tipo'].str.contains("Sin", case=False, na=False)]))
-        c3.metric("Variedades Con Licor", len(df_p[df_p['tipo'].str.contains("Con", case=False, na=False)]))
-    
-    st.markdown("---")
-
-    # --- FORMULARIO DE REGISTRO ESTILIZADO ---
-    with st.expander("✨ AGREGAR NUEVO SABOR AL MENÚ", expanded=False):
-        with st.form("form_nuevo_producto", clear_on_submit=True):
-            col_form1, col_form2 = st.columns(2)
-            
-            with col_form1:
-                nombre = st.text_input("📝 Nombre del Sabor", placeholder="Ej: Maracuyá Explosivo")
-                tipo = st.selectbox("🏷️ Categoría", ["Sin Licor", "Con Licor"])
-            
-            with col_form2:
-                precio = st.number_input("💵 Precio de Venta ($)", min_value=0, step=500, value=35000)
-                st.markdown("<br>", unsafe_allow_html=True)
-                submit = st.form_submit_button("🚀 GUARDAR EN CATÁLOGO", use_container_width=True)
-            
-            if submit:
-                if nombre:
-                    # Crear el nuevo registro
-                    nueva_fila = pd.DataFrame([{
-                        "nombre": nombre.strip(),
-                        "tipo": tipo,
-                        "precio": int(precio),
-                        "stock": 0,  # Todo producto nuevo inicia en 0
-                        "color": "#00f2fe" if "Sin" in tipo else "#ff4b4b"
-                    }])
-                    
-                    df_actualizado = pd.concat([df_p, nueva_fila], ignore_index=True) if not df_p.empty else nueva_fila
-                    
-                    try:
-                        conn.update(worksheet="productos", data=df_actualizado)
-                        st.success(f"✅ ¡{nombre} ha sido añadido con éxito!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ Error al guardar: {e}")
-                else:
-                    st.warning("⚠️ Por favor, escribe un nombre para el producto.")
-
-    # --- TABLA DE PRODUCTOS ACTUALES ---
-    st.markdown("### 📋 Sabores en Menú")
-    if not df_p.empty:
-        # Formatear la tabla para que se vea mejor
-        df_display = df_p.copy()
-        # Ordenar por tipo y luego por nombre
-        df_display = df_display.sort_values(['tipo', 'nombre'])
-        
-        # Renombrar columnas para la vista del usuario
-        df_display.columns = [c.upper() for c in df_display.columns]
-        
-        st.dataframe(
-            df_display[['NOMBRE', 'TIPO', 'PRECIO', 'STOCK']], 
-            use_container_width=True, 
-            hide_index=True
-        )
-    else:
-        st.info("Aún no tienes productos registrados. ¡Usa el botón de arriba para empezar!")
+        st.warning("⚠️ No hay productos en el catálogo. Primero registra sabores en 'Catálogo Productos'.")
 
 # --- MÓDULO 5: GESTIÓN CLIENTES (VERSIÓN COMPLETA CON ELIMINACIÓN) ---
 elif menu == "🏢 Gestión Clientes":
