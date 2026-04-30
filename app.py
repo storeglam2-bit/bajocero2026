@@ -421,86 +421,114 @@ elif menu == "🏢 Gestión Clientes":
         df_filtrado.columns = ["NOMBRE DE LA EMPRESA"]
         st.dataframe(df_filtrado.sort_values("NOMBRE DE LA EMPRESA"), use_container_width=True, hide_index=True)
 
-# --- MÓDULO 6: HISTORIAL DE VENTAS (CENTRO DE CONTROL PREMIUM) ---
+# --- MÓDULO 6: HISTORIAL DE VENTAS (ANALYTICS SUITE PRO) ---
 elif menu == "📋 Historial de Ventas":
-    st.markdown("<h1 style='text-align: center;'>📋 Historial de Ventas</h1>", unsafe_allow_html=True)
+    st.markdown("""
+        <h1 style='text-align: center; color: #00f2fe; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);'>
+            📋 Centro de Inteligencia de Ventas
+        </h1>
+    """, unsafe_allow_html=True)
     
     df_v = cargar_datos("ventas")
     
     if not df_v.empty:
-        # Limpieza de datos
+        # Procesamiento de datos de alto rendimiento
         df_v['total'] = pd.to_numeric(df_v['total'], errors='coerce').fillna(0)
         df_v['cantidad'] = pd.to_numeric(df_v['cantidad'], errors='coerce').fillna(0)
         df_v['fecha'] = pd.to_datetime(df_v['fecha']).dt.date
         
-        # --- PANEL LATERAL DE FILTROS (DENTRO DEL MÓDULO) ---
-        with st.expander("🔍 Filtros Avanzados", expanded=False):
+        # --- ÁREA DE CONTROL (Filtros en el Sidebar o Expander Sutil) ---
+        with st.expander("🛠️ HERRAMIENTAS DE FILTRADO", expanded=False):
             f1, f2, f3 = st.columns(3)
             with f1:
-                filtro_cliente = st.multiselect("Filtrar Cliente:", options=sorted(df_v['cliente'].unique()))
+                filtro_cliente = st.multiselect("👤 Cliente", options=sorted(df_v['cliente'].unique()))
             with f2:
-                filtro_metodo = st.multiselect("Método de Pago:", options=df_v['metodo'].unique())
+                filtro_metodo = st.multiselect("💳 Método", options=df_v['metodo'].unique())
             with f3:
-                rango = st.date_input("Rango de Fechas:", [df_v['fecha'].min(), df_v['fecha'].max()])
+                rango = st.date_input("📅 Período", [df_v['fecha'].min(), df_v['fecha'].max()])
 
-        # Aplicar Filtros
+        # Aplicación de Lógica de Filtrado
         df_f = df_v.copy()
-        if filtro_cliente:
-            df_f = df_f[df_f['cliente'].isin(filtro_cliente)]
-        if filtro_metodo:
-            df_f = df_f[df_f['metodo'].isin(filtro_metodo)]
+        if filtro_cliente: df_f = df_f[df_f['cliente'].isin(filtro_cliente)]
+        if filtro_metodo: df_f = df_f[df_f['metodo'].isin(filtro_metodo)]
         if len(rango) == 2:
             df_f = df_f[(df_f['fecha'] >= rango[0]) & (df_f['fecha'] <= rango[1])]
 
-        # --- MÉTRICAS RESUMEN ---
-        m1, m2, m3, m4 = st.columns(4)
+        # --- KPI DASHBOARD (DISEÑO DE TARJETAS MINI) ---
+        t1, t2, t3, t4 = st.columns(4)
+        
+        def kpi_card(label, value, color, icon):
+            return f"""
+                <div style="background: rgba(255, 255, 255, 0.03); padding: 15px; border-radius: 12px; 
+                            border-top: 3px solid {color}; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+                    <p style="margin:0; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px;">{icon} {label}</p>
+                    <h2 style="margin:0; color: white; font-size: 20px;">{value}</h2>
+                </div>
+            """
+
         total_d = df_f['total'].sum()
         total_u = df_f['cantidad'].sum()
         promedio = total_d / len(df_f) if len(df_f) > 0 else 0
         
-        # Estilo de métricas profesional
-        m1.metric("💰 Total Ventas", f"$ {total_d:,.0f}")
-        m2.metric("📦 Unidades", f"{total_u:,.0f}")
-        m3.metric("📈 Ticket Prom", f"$ {promedio:,.0f}")
-        m4.metric("🧾 Órdenes", f"{len(df_f)}")
+        t1.markdown(kpi_card("Ingresos", f"$ {total_d:,.0f}", "#2ecc71", "💰"), unsafe_allow_html=True)
+        t2.markdown(kpi_card("Unidades", f"{total_u:,.0f}", "#00f2fe", "🍦"), unsafe_allow_html=True)
+        t3.markdown(kpi_card("Ticket Prom.", f"$ {promedio:,.0f}", "#f1c40f", "📈"), unsafe_allow_html=True)
+        t4.markdown(kpi_card("Órdenes", f"{len(df_f)}", "#9b59b6", "🧾"), unsafe_allow_html=True)
 
-        st.markdown("---")
+        st.markdown("<br>", unsafe_allow_html=True)
 
-        # --- GRÁFICO DE RENDIMIENTO ---
-        col_chart, col_tabla = st.columns([1.2, 1])
+        # --- VISUALIZACIÓN DE TENDENCIAS ---
+        col_chart, col_rank = st.columns([1.5, 1])
         
         with col_chart:
-            st.markdown("### 📊 Top Sabores Vendidos")
-            # Agrupar por producto para el gráfico
-            ventas_prod = df_f.groupby('producto')['cantidad'].sum().reset_index().sort_values('cantidad', ascending=False)
-            st.bar_chart(data=ventas_prod, x='producto', y='cantidad', color='#00f2fe')
+            st.markdown("#### 📊 Desempeño por Producto")
+            ventas_prod = df_f.groupby('producto')['cantidad'].sum().reset_index()
+            # Usamos Plotly para un acabado más "premium" si está disponible, 
+            # si no, el bar_chart nativo estilizado:
+            st.bar_chart(data=ventas_prod, x='producto', y='cantidad', color="#00f2fe")
 
-        with col_tabla:
-            st.markdown("### 🏆 Top Clientes")
-            ventas_cli = df_f.groupby('cliente')['total'].sum().reset_index().sort_values('total', ascending=False)
-            ventas_cli.columns = ['CLIENTE', 'TOTAL COMPRADO']
-            st.dataframe(ventas_cli, hide_index=True, use_container_width=True)
+        with col_rank:
+            st.markdown("#### 🏆 Top Clientes (Valor)")
+            ventas_cli = df_f.groupby('cliente')['total'].sum().reset_index().sort_values('total', ascending=False).head(5)
+            st.dataframe(
+                ventas_cli, 
+                column_config={
+                    "cliente": "Cliente",
+                    "total": st.column_config.ProgressColumn("Inversión Total", format="$ %d", min_value=0, max_value=float(ventas_cli['total'].max() if not ventas_cli.empty else 100))
+                },
+                hide_index=True, use_container_width=True
+            )
 
-        # --- TABLA DETALLADA ---
-        st.markdown("### 📄 Listado de Transacciones")
-        df_mostrar = df_f.sort_values('fecha', ascending=False).copy()
+        # --- LOG DE TRANSACCIONES DETALLADO ---
+        st.markdown("#### 📄 Registro Detallado de Movimientos")
         
-        # Formatear la tabla para que se vea impecable
         st.dataframe(
-            df_mostrar,
+            df_f.sort_values('fecha', ascending=False),
             column_config={
+                "fecha": st.column_config.DateColumn("Fecha", format="DD/MM/YYYY"),
+                "cliente": "Cliente",
+                "producto": "Sabor Vendido",
+                "cantidad": st.column_config.NumberColumn("Und", format="%d 🍦"),
+                "precio_unitario": st.column_config.NumberColumn("P. Unit", format="$ %d"),
                 "total": st.column_config.NumberColumn("Total", format="$ %d"),
-                "precio_unitario": st.column_config.NumberColumn("Precio U.", format="$ %d"),
-                "fecha": "Fecha",
-                "metodo": "Pago"
+                "metodo": "Método Pago"
             },
             use_container_width=True,
             hide_index=True
         )
 
-        # Botón de exportación sutil
-        csv = df_f.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Descargar Reporte CSV", csv, "ventas.csv", "text/csv", use_container_width=True)
+        # Footer de Acciones
+        st.markdown("---")
+        c_down1, c_down2 = st.columns([2, 1])
+        with c_down2:
+            csv = df_f.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 EXPORTAR REPORTE (CSV)",
+                data=csv,
+                file_name=f'reporte_ventas_{rango[0]}.csv',
+                mime='text/csv',
+                use_container_width=True
+            )
 
     else:
-        st.info("🕒 No hay datos de ventas registrados aún.")
+        st.warning("⚠️ No se detectaron movimientos de venta en la base de datos.")
