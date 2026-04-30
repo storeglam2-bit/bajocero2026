@@ -43,7 +43,7 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# --- MÓDULO 1: PANEL PRINCIPAL (ESTILO SINCRONIZADO) ---
+# --- MÓDULO 1: PANEL PRINCIPAL (VERSION COMPACTA PRO) ---
 if menu == "📊 Panel Principal":
     st.markdown("<h1 style='text-align: center;'>📊 Resumen de Inventario</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
@@ -56,65 +56,63 @@ if menu == "📊 Panel Principal":
         # Cálculos de métricas
         df_sin = df_p[df_p['tipo'].str.contains("Sin", case=False, na=False)]
         df_con = df_p[df_p['tipo'].str.contains("Con", case=False, na=False)]
-        
         valor_inventario = int((df_p['stock'] * df_p['precio']).sum())
 
         # --- MÉTRICAS SUPERIORES ---
         m1, m2, m3 = st.columns(3)
         m1.metric("💰 Valor Total", f"$ {valor_inventario:,}".replace(",", "."))
-        m2.metric("🥤 Total Sin Licor", f"{df_sin['stock'].sum()} und")
-        m3.metric("🍸 Total Con Licor", f"{df_con['stock'].sum()} und")
+        m2.metric("🥤 Sin Licor", f"{df_sin['stock'].sum()} und")
+        m3.metric("🍸 Con Licor", f"{df_con['stock'].sum()} und")
         
         # --- SECCIÓN DE DISPONIBILIDAD CRÍTICA ---
         df_alerta = df_p[df_p['stock'] <= 4].sort_values('stock')
         
         if not df_alerta.empty:
             st.markdown("---")
-            # Título central con color dinámico (Cian para resaltar)
             st.markdown("""
-                <div style='text-align: center; margin-bottom: 20px;'>
-                    <h3 style='color: #00f2fe; font-size: 26px; font-weight: bold; margin-bottom: 0;'>🧊 DISPONIBILIDAD CRÍTICA</h3>
-                    <p style='color: #666; font-size: 14px;'>Reponer estos sabores de inmediato</p>
+                <div style='text-align: center; margin-bottom: 10px;'>
+                    <h3 style='color: #00f2fe; font-size: 20px; font-weight: bold; margin-bottom: 0;'>🧊 DISPONIBILIDAD CRÍTICA</h3>
+                    <p style='color: #888; font-size: 12px;'>Reponer existencias pronto</p>
                 </div>
             """, unsafe_allow_html=True)
             
+            # Usamos contenedores dinámicos para las tarjetas
             cols_alerta = st.columns(4)
             
             for i, (_, fila) in enumerate(df_alerta.iterrows()):
-                # Definición de colores según el stock para sincronizar todo el cuadro
                 if fila['stock'] == 0:
-                    color_tema = "#ff4b4b" # Rojo
+                    color_tema = "#ff4b4b" 
                     icon = "🚫"
                 elif fila['stock'] <= 2:
-                    color_tema = "#ffa500" # Naranja
+                    color_tema = "#ffa500" 
                     icon = "⚠️"
                 else:
-                    color_tema = "#00f2fe" # Cian
+                    color_tema = "#00f2fe" 
                     icon = "📉"
 
+                # HTML OPTIMIZADO (Más pequeño y con bordes finos)
                 badge_html = f"""
                 <div style="
-                    background-color: #1a1a1a; 
-                    padding: 20px; 
-                    border-radius: 15px; 
-                    border: 2px solid {color_tema};
+                    background-color: #0e1117; 
+                    padding: 12px; 
+                    border-radius: 10px; 
+                    border: 1px solid {color_tema};
                     text-align: center;
-                    margin-bottom: 15px;
-                    box-shadow: 0px 4px 20px rgba(0,0,0,0.4);">
-                    <div style="font-size: 35px; margin-bottom: 10px;">{icon}</div>
-                    <p style="margin: 0; font-size: 18px; font-weight: bold; color: {color_tema};">{fila['nombre']}</p>
-                    <p style="margin: 5px 0; font-size: 24px; color: white; font-weight: bold;">{fila['stock']} <span style='font-size: 14px; opacity:0.8;'>UND</span></p>
+                    margin-bottom: 10px;
+                    box-shadow: 0px 2px 10px rgba(0,0,0,0.3);">
+                    <div style="font-size: 20px; margin-bottom: 5px;">{icon}</div>
+                    <p style="margin: 0; font-size: 14px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{fila['nombre']}</p>
+                    <p style="margin: 2px 0; font-size: 18px; color: {color_tema}; font-weight: bold;">{fila['stock']} <span style='font-size: 11px; opacity:0.8;'>UND</span></p>
                     <div style="
                         display: inline-block;
-                        padding: 2px 10px;
-                        border-radius: 5px;
-                        background-color: {color_tema}33; 
+                        padding: 1px 6px;
+                        border-radius: 4px;
+                        background-color: {color_tema}22; 
                         color: {color_tema};
-                        font-size: 10px;
+                        font-size: 9px;
                         font-weight: bold;
                         text-transform: uppercase;
-                        letter-spacing: 1px;
-                        border: 1px solid {color_tema};">
+                        border: 0.5px solid {color_tema};">
                         {fila['tipo']}
                     </div>
                 </div>
@@ -126,10 +124,10 @@ if menu == "📊 Panel Principal":
         # --- TABLAS DETALLADAS ---
         c1, c2 = st.columns(2)
         with c1:
-            st.subheader("🥤 Detalle Sin Licor")
+            st.markdown("#### 🥤 Detalle Sin Licor")
             st.dataframe(df_sin[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
         with c2:
-            st.subheader("🍸 Detalle Con Licor")
+            st.markdown("#### 🍸 Detalle Con Licor")
             st.dataframe(df_con[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
     else:
         st.info("No hay productos registrados.")
