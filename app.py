@@ -477,22 +477,24 @@ elif menu == "📋 Historial de Ventas":
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-# --- VISUALIZACIÓN DE TENDENCIAS (DISEÑO SLIM) ---
+# --- VISUALIZACIÓN DE TENDENCIAS (DISEÑO SLIM & ENTEROS) ---
         st.markdown("<br>", unsafe_allow_html=True)
-        col_chart, col_rank = st.columns([1.2, 1]) # Ajustamos proporciones para dar equilibrio
+        col_chart, col_rank = st.columns([1.2, 1])
         
         with col_chart:
             st.markdown("#### 📊 Unidades por Sabor")
-            # Preparar datos
-            ventas_prod = df_f.groupby('producto')['cantidad'].sum().reset_index().sort_values('cantidad', ascending=True)
+            # Agrupamos y aseguramos que 'cantidad' sea entero
+            ventas_prod = df_f.groupby('producto')['cantidad'].sum().reset_index()
+            ventas_prod['cantidad'] = ventas_prod['cantidad'].astype(int) 
+            ventas_prod = ventas_prod.sort_values('cantidad', ascending=True)
             
-            # Gráfico de barras horizontales (ocupa menos espacio visual verticalmente)
+            # Gráfico horizontal optimizado
             st.bar_chart(
                 data=ventas_prod, 
                 x='producto', 
                 y='cantidad', 
                 color="#00f2fe", 
-                horizontal=True, # 🔥 CLAVE: Barras horizontales para mejor lectura de nombres
+                horizontal=True,
                 use_container_width=True
             )
 
@@ -500,11 +502,10 @@ elif menu == "📋 Historial de Ventas":
             st.markdown("#### 🏆 Top Clientes (Inversión)")
             ventas_cli = df_f.groupby('cliente')['total'].sum().reset_index().sort_values('total', ascending=False).head(5)
             
-            # Tabla con barras de progreso integradas (muy estético)
             st.dataframe(
                 ventas_cli, 
                 column_config={
-                    "cliente": st.column_config.TextColumn("Cliente"),
+                    "cliente": "Cliente",
                     "total": st.column_config.ProgressColumn(
                         "Total Compra", 
                         format="$ %d", 
@@ -515,6 +516,21 @@ elif menu == "📋 Historial de Ventas":
                 hide_index=True, 
                 use_container_width=True
             )
+
+        # --- TABLA DETALLADA (FORMATO ENTERO) ---
+        st.markdown("#### 📄 Registro Detallado")
+        st.dataframe(
+            df_f.sort_values('fecha', ascending=False),
+            column_config={
+                "fecha": st.column_config.DateColumn("Fecha", format="DD/MM/YYYY"),
+                "cantidad": st.column_config.NumberColumn("Und", format="%d"), # %d elimina decimales
+                "precio_unitario": st.column_config.NumberColumn("P. Unit", format="$ %d"),
+                "total": st.column_config.NumberColumn("Total", format="$ %d"),
+                "metodo": "Pago"
+            },
+            use_container_width=True,
+            hide_index=True
+        )
 
         # --- LOG DE TRANSACCIONES DETALLADO ---
         st.markdown("#### 📄 Registro Detallado de Movimientos")
