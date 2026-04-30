@@ -42,37 +42,30 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# --- MÓDULO 1: PANEL PRINCIPAL (DASHBOARD) ---
+# --- MÓDULO 1: PANEL PRINCIPAL ---
 if menu == "📊 Panel Principal":
     st.title("📊 Resumen de Inventario")
     df_p = cargar_datos("productos")
     
     if not df_p.empty:
-        # Formateo de datos: asegurar que sean números enteros sin decimales
         df_p['stock'] = pd.to_numeric(df_p['stock'], errors='coerce').fillna(0).astype(int)
         df_p['precio'] = pd.to_numeric(df_p['precio'], errors='coerce').fillna(0).astype(int)
+
+        col1, col2 = st.columns(2)
         
-        # Métricas principales
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Sabores Activos", len(df_p))
-        c2.metric("Total Botellas (3L)", int(df_p['stock'].sum()))
-        
-        valor_total = (df_p['stock'] * df_p['precio']).sum()
-        c3.metric("Valor Inventario", f"$ {int(valor_total):,}".replace(",", "."))
-        
-        st.markdown("---")
-        
-        # Tabla de Existencias con formato limpio
-        st.subheader("📦 Estado del Stock")
-        st.dataframe(
-            df_p[['nombre', 'tipo', 'stock', 'precio']].style.format({
-                "precio": lambda x: f"$ {int(x):,}".replace(",", "."),
-                "stock": "{:d}"
-            }),
-            use_container_width=True, hide_index=True
-        )
+        with col1:
+            st.subheader("🥤 Sin Licor")
+            df_sin = df_p[df_p['tipo'].str.contains("Sin", case=False, na=False)]
+            st.metric("Variedades", len(df_sin))
+            st.dataframe(df_sin[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
+
+        with col2:
+            st.subheader("🍸 Con Licor")
+            df_con = df_p[df_p['tipo'].str.contains("Con", case=False, na=False)]
+            st.metric("Variedades", len(df_con))
+            st.dataframe(df_con[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
     else:
-        st.info("No se encontraron datos en la pestaña 'productos'.")
+        st.info("No hay productos registrados.")
 
 # --- MÓDULO 2: REGISTRAR VENTA ---
 elif menu == "🛒 Registrar Venta":
