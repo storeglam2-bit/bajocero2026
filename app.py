@@ -43,91 +43,91 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# --- MÓDULO 1: PANEL PRINCIPAL (VERSION COMPACTA PRO) ---
+# --- MÓDULO 1: PANEL PRINCIPAL (ULTRA COMPACTO & DETALLADO) ---
 if menu == "📊 Panel Principal":
     st.markdown("<h1 style='text-align: center;'>📊 Resumen de Inventario</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
     
     if not df_p.empty:
-        # Asegurar datos numéricos
+        # Limpieza de datos
         df_p['stock'] = pd.to_numeric(df_p['stock'], errors='coerce').fillna(0).astype(int)
         df_p['precio'] = pd.to_numeric(df_p['precio'], errors='coerce').fillna(0).astype(int)
         
-        # Cálculos de métricas
+        # Cálculos específicos
         df_sin = df_p[df_p['tipo'].str.contains("Sin", case=False, na=False)]
         df_con = df_p[df_p['tipo'].str.contains("Con", case=False, na=False)]
-        valor_inventario = int((df_p['stock'] * df_p['precio']).sum())
-
-        # --- MÉTRICAS SUPERIORES ---
-        m1, m2, m3 = st.columns(3)
-        m1.metric("💰 Valor Total", f"$ {valor_inventario:,}".replace(",", "."))
-        m2.metric("🥤 Sin Licor", f"{df_sin['stock'].sum()} und")
-        m3.metric("🍸 Con Licor", f"{df_con['stock'].sum()} und")
         
-        # --- SECCIÓN DE DISPONIBILIDAD CRÍTICA ---
+        valor_sin = int((df_sin['stock'] * df_sin['precio']).sum())
+        valor_con = int((df_con['stock'] * df_con['precio']).sum())
+        total_global = valor_sin + valor_con
+
+        # --- NUEVAS TARJETAS DE VALOR INDIVIDUAL ---
+        c_val1, c_val2, c_val3 = st.columns(3)
+        
+        with c_val1:
+            st.markdown(f"""
+                <div style="background-color: #1a1a1a; padding: 10px; border-radius: 10px; border-left: 5px solid #ff4b4b; text-align: center;">
+                    <p style="margin:0; font-size:12px; color:#888;">🥤 SIN LICOR</p>
+                    <h3 style="margin:0; color:white; font-size:18px;">{df_sin['stock'].sum()} <span style="font-size:10px;">UND</span></h3>
+                    <p style="margin:0; color:#ff4b4b; font-size:14px; font-weight:bold;">$ {valor_sin:,}</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with c_val2:
+            st.markdown(f"""
+                <div style="background-color: #1a1a1a; padding: 10px; border-radius: 10px; border-left: 5px solid #00f2fe; text-align: center;">
+                    <p style="margin:0; font-size:12px; color:#888;">🍸 CON LICOR</p>
+                    <h3 style="margin:0; color:white; font-size:18px;">{df_con['stock'].sum()} <span style="font-size:10px;">UND</span></h3>
+                    <p style="margin:0; color:#00f2fe; font-size:14px; font-weight:bold;">$ {valor_con:,}</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with c_val3:
+            st.markdown(f"""
+                <div style="background-color: #1a1a1a; padding: 10px; border-radius: 10px; border-left: 5px solid #2ecc71; text-align: center;">
+                    <p style="margin:0; font-size:12px; color:#888;">💰 VALOR TOTAL</p>
+                    <h3 style="margin:0; color:white; font-size:18px;">{df_p['stock'].sum()} <span style="font-size:10px;">UND</span></h3>
+                    <p style="margin:0; color:#2ecc71; font-size:14px; font-weight:bold;">$ {total_global:,}</p>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        # --- SECCIÓN DE DISPONIBILIDAD CRÍTICA (MÁS PEQUEÑA) ---
         df_alerta = df_p[df_p['stock'] <= 4].sort_values('stock')
         
         if not df_alerta.empty:
-            st.markdown("---")
-            st.markdown("""
-                <div style='text-align: center; margin-bottom: 10px;'>
-                    <h3 style='color: #00f2fe; font-size: 20px; font-weight: bold; margin-bottom: 0;'>🧊 DISPONIBILIDAD CRÍTICA</h3>
-                    <p style='color: #888; font-size: 12px;'>Reponer existencias pronto</p>
-                </div>
-            """, unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align:center; color:#666; font-size:13px; margin-bottom:5px;'>⚠️ ALERTAS DE REPOSICIÓN</p>", unsafe_allow_html=True)
             
-            # Usamos contenedores dinámicos para las tarjetas
-            cols_alerta = st.columns(4)
+            cols_alerta = st.columns(5) # 5 columnas para que sean más pequeñas
             
             for i, (_, fila) in enumerate(df_alerta.iterrows()):
-                if fila['stock'] == 0:
-                    color_tema = "#ff4b4b" 
-                    icon = "🚫"
-                elif fila['stock'] <= 2:
-                    color_tema = "#ffa500" 
-                    icon = "⚠️"
-                else:
-                    color_tema = "#00f2fe" 
-                    icon = "📉"
+                color_t = "#ff4b4b" if fila['stock'] == 0 else ("#ffa500" if fila['stock'] <= 2 else "#00f2fe")
+                icon = "🚫" if fila['stock'] == 0 else ("⚠️" if fila['stock'] <= 2 else "📉")
 
-                # HTML OPTIMIZADO (Más pequeño y con bordes finos)
                 badge_html = f"""
                 <div style="
                     background-color: #0e1117; 
-                    padding: 12px; 
-                    border-radius: 10px; 
-                    border: 1px solid {color_tema};
+                    padding: 8px; 
+                    border-radius: 8px; 
+                    border: 1px solid {color_t};
                     text-align: center;
-                    margin-bottom: 10px;
-                    box-shadow: 0px 2px 10px rgba(0,0,0,0.3);">
-                    <div style="font-size: 20px; margin-bottom: 5px;">{icon}</div>
-                    <p style="margin: 0; font-size: 14px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{fila['nombre']}</p>
-                    <p style="margin: 2px 0; font-size: 18px; color: {color_tema}; font-weight: bold;">{fila['stock']} <span style='font-size: 11px; opacity:0.8;'>UND</span></p>
-                    <div style="
-                        display: inline-block;
-                        padding: 1px 6px;
-                        border-radius: 4px;
-                        background-color: {color_tema}22; 
-                        color: {color_tema};
-                        font-size: 9px;
-                        font-weight: bold;
-                        text-transform: uppercase;
-                        border: 0.5px solid {color_tema};">
-                        {fila['tipo']}
-                    </div>
+                    margin-bottom: 5px;">
+                    <div style="font-size: 14px;">{icon}</div>
+                    <p style="margin: 0; font-size: 11px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{fila['nombre']}</p>
+                    <p style="margin: 0; font-size: 14px; color: {color_t}; font-weight: bold;">{fila['stock']} <span style='font-size: 9px;'>UND</span></p>
                 </div>
                 """
-                with cols_alerta[i % 4]:
+                with cols_alerta[i % 5]:
                     st.markdown(badge_html, unsafe_allow_html=True)
         
         st.markdown("---")
         # --- TABLAS DETALLADAS ---
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown("#### 🥤 Detalle Sin Licor")
+            st.markdown("<p style='font-size:14px; font-weight:bold; margin-bottom:0;'>🥤 Detalle Sin Licor</p>", unsafe_allow_html=True)
             st.dataframe(df_sin[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
         with c2:
-            st.markdown("#### 🍸 Detalle Con Licor")
+            st.markdown("<p style='font-size:14px; font-weight:bold; margin-bottom:0;'>🍸 Detalle Con Licor</p>", unsafe_allow_html=True)
             st.dataframe(df_con[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
     else:
         st.info("No hay productos registrados.")
