@@ -13,6 +13,7 @@ st.set_page_config(
 # Se utiliza la URL de la hoja definida en tus Secrets de Streamlit
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+@st.cache_data(ttl=60)
 def cargar_datos(pestana):
     try:
         # ttl=0 asegura que los datos se lean en tiempo real sin caché
