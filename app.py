@@ -9,6 +9,14 @@ st.set_page_config(page_title="Bajo Cero - Gestión", page_icon="❄️", layout
 # Conexión con Google Sheets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
+# Función segura para leer datos
+def cargar_datos(pestana):
+    try:
+        return conn.read(worksheet=pestana, ttl="0")
+    except Exception as e:
+        st.error(f"Error leyendo la pestaña '{pestana}': {e}")
+        return pd.DataFrame()
+
 # --- SIDEBAR ---
 # Intentamos cargar el logo. Si falla, ponemos texto para evitar el error MediaFileStorageError
 try:
