@@ -293,6 +293,27 @@ elif menu == "📥 Entrada Producción":
     else:
         st.warning("⚠️ No hay productos en el catálogo. Primero registra sabores en 'Catálogo Productos'.")
 
+# --- MÓDULO 4: CATÁLOGO PRODUCTOS ---
+elif menu == "🥤 Catálogo Productos":
+    st.title("🥤 Gestión de Catálogo")
+    df_p = cargar_datos("productos")
+    
+    with st.expander("✨ AÑADIR NUEVO SABOR", expanded=False):
+        with st.form("nuevo"):
+            c1, c2 = st.columns(2)
+            n = c1.text_input("Nombre")
+            t = c1.selectbox("Tipo", ["Sin Licor", "Con Licor"])
+            p = c2.number_input("Precio", min_value=0, step=500, value=36000)
+            if st.form_submit_button("Guardar"):
+                if n:
+                    nueva = pd.DataFrame([{"nombre": n.strip(), "tipo": t, "precio": p, "stock": 0}])
+                    df_f = pd.concat([df_p, nueva], ignore_index=True)
+                    conn.update(worksheet="productos", data=df_f)
+                    st.rerun()
+
+    if not df_p.empty:
+        st.dataframe(df_p[['nombre', 'tipo', 'precio', 'stock']].sort_values('tipo'), use_container_width=True, hide_index=True)
+
 # --- MÓDULO 5: GESTIÓN CLIENTES (VERSIÓN COMPLETA CON ELIMINACIÓN) ---
 elif menu == "🏢 Gestión Clientes":
     st.markdown("<h1 style='text-align: center;'>🏢 Directorio de Clientes</h1>", unsafe_allow_html=True)
