@@ -244,70 +244,78 @@ elif menu == "🥤 Catálogo Productos":
     else:
         st.info("Aún no tienes productos registrados. ¡Usa el botón de arriba para empezar!")
 
-# --- MÓDULO 5: GESTIÓN CLIENTES (REDISEÑO PROFESIONAL) ---
+# --- MÓDULO 5: GESTIÓN CLIENTES (VERSIÓN COMPLETA CON ELIMINACIÓN) ---
 elif menu == "🏢 Gestión Clientes":
     st.markdown("<h1 style='text-align: center;'>🏢 Directorio de Clientes</h1>", unsafe_allow_html=True)
     df_c = cargar_datos("clientes")
     
-    # --- MÉTRICAS DE CLIENTES ---
+    # --- MÉTRICAS ---
     if not df_c.empty:
         c1, c2 = st.columns(2)
-        total_clientes = len(df_c)
-        c1.metric("Clientes Registrados", f"{total_clientes} 👤")
-        # Simulación de crecimiento o mensaje de estado
-        c2.info("💡 Consejo: Mantén los nombres estandarizados para evitar duplicados en las facturas.")
+        c1.metric("Clientes Registrados", f"{len(df_c)} 👤")
+        c2.info("💡 Tip: Para editar un nombre, elíminalo y regístralo nuevamente.")
     
     st.markdown("---")
 
-    # --- FORMULARIO DE REGISTRO ESTILIZADO ---
-    with st.expander("➕ REGISTRAR NUEVO CLIENTE O EMPRESA", expanded=False):
+    # --- PESTAÑAS DE ACCIÓN ---
+    tab_registro, tab_eliminar = st.tabs(["➕ Registrar Cliente", "🗑️ Eliminar Cliente"])
+
+    # PESTAÑA 1: REGISTRO
+    with tab_registro:
         with st.form("form_cli", clear_on_submit=True):
             col_form1, col_form2 = st.columns([2, 1])
-            
             with col_form1:
                 nombre_c = st.text_input("🏢 Nombre Comercial / Razón Social", placeholder="Ej: Licorería El Faro")
-            
             with col_form2:
                 st.markdown("<br>", unsafe_allow_html=True)
                 submit_cli = st.form_submit_button("💾 GUARDAR CLIENTE", use_container_width=True)
             
             if submit_cli:
                 if nombre_c:
-                    # Limpiamos el nombre para consistencia
                     nombre_limpio = nombre_c.strip().upper()
-                    
-                    # Verificamos si ya existe
                     if not df_c.empty and nombre_limpio in df_c['empresa'].str.upper().values:
-                        st.warning(f"⚠️ El cliente '{nombre_limpio}' ya existe en la base de datos.")
+                        st.warning(f"⚠️ El cliente '{nombre_limpio}' ya existe.")
                     else:
                         nueva_c = pd.DataFrame([{"empresa": nombre_limpio}])
                         df_res_c = pd.concat([df_c, nueva_c], ignore_index=True) if not df_c.empty else nueva_c
-                        
                         try:
                             conn.update(worksheet="clientes", data=df_res_c)
-                            st.success(f"✅ '{nombre_limpio}' ha sido registrado correctamente.")
+                            st.success(f"✅ '{nombre_limpio}' registrado.")
                             st.rerun()
                         except Exception as e:
-                            st.error(f"❌ Error de permisos o conexión: {e}")
-                else:
-                    st.error("⚠️ Debes ingresar un nombre para realizar el registro.")
+                            st.error(f"❌ Error: {e}")
 
-    # --- VISUALIZACIÓN DE BASE DE DATOS ---
-    st.markdown("### 📋 Listado de Aliados Comerciales")
+    # PESTAÑA 2: ELIMINACIÓN (ZONA DE PELIGRO)
+    with tab_eliminar:
+        if not df_c.empty:
+            st.markdown("<p style='color: #ff4b4b; font-weight: bold;'>⚠️ ZONA DE PELIGRO</p>", unsafe_allow_html=True)
+            with st.form("form_eliminar_cli"):
+                cliente_a_borrar = st.selectbox("Selecciona el cliente que deseas eliminar:", df_c['empresa'].sort_values().tolist())
+                
+                st.write(f"¿Estás seguro de que deseas eliminar a **{cliente_a_borrar}**?")
+                confirmar = st.form_submit_button("🔥 ELIMINAR DEFINITIVAMENTE", use_container_width=True)
+                
+                if confirmar:
+                    # Filtrar el dataframe para quitar el cliente seleccionado
+                    df_nuevo_c = df_c[df_c['empresa'] != cliente_a_borrar]
+                    try:
+                        conn.update(worksheet="clientes", data=df_nuevo_c)
+                        st.success(f"🗑️ Cliente '{cliente_a_borrar}' eliminado correctamente.")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ No se pudo eliminar: {e}")
+        else:
+            st.info("No hay clientes para eliminar.")
+
+    st.markdown("---")
+
+    # --- LISTADO VISUAL ---
+    st.markdown("### 📋 Aliados Comerciales Actuales")
     if not df_c.empty:
-        # Buscador rápido
-        busqueda = st.text_input("🔍 Buscar cliente...", placeholder="Escribe el nombre aquí...")
-        
+        busqueda = st.text_input("🔍 Buscar cliente...")
         df_filtrado = df_c.copy()
         if busqueda:
             df_filtrado = df_filtrado[df_filtrado['empresa'].str.contains(busqueda, case=False, na=False)]
         
-        # Mostramos como dataframe estilizado (mejor que st.table)
         df_filtrado.columns = ["NOMBRE DE LA EMPRESA"]
-        st.dataframe(
-            df_filtrado.sort_values("NOMBRE DE LA EMPRESA"), 
-            use_container_width=True, 
-            hide_index=True
-        )
-    else:
-        st.info("No hay clientes registrados aún.")
+        st.dataframe(df_filtrado.sort_values("NOMBRE DE LA EMPRESA"), use_container_width=True, hide_index=True)
