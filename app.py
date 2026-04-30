@@ -42,7 +42,7 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# --- MÓDULO 1: PANEL PRINCIPAL (ACTUALIZADO) ---
+# --- MÓDULO 1: PANEL PRINCIPAL (VERSIÓN PROFESIONAL) ---
 if menu == "📊 Panel Principal":
     st.title("📊 Resumen de Inventario")
     df_p = cargar_datos("productos")
@@ -52,7 +52,7 @@ if menu == "📊 Panel Principal":
         df_p['stock'] = pd.to_numeric(df_p['stock'], errors='coerce').fillna(0).astype(int)
         df_p['precio'] = pd.to_numeric(df_p['precio'], errors='coerce').fillna(0).astype(int)
         
-        # --- CÁLCULOS ---
+        # Cálculos de inventario
         df_sin = df_p[df_p['tipo'].str.contains("Sin", case=False, na=False)]
         df_con = df_p[df_p['tipo'].str.contains("Con", case=False, na=False)]
         
@@ -66,15 +66,34 @@ if menu == "📊 Panel Principal":
         m2.metric("🥤 Total Sin Licor", f"{total_stock_sin} und")
         m3.metric("🍸 Total Con Licor", f"{total_stock_con} und")
         
-        st.markdown("---")
-
-        # --- ALERTAS DE STOCK CRÍTICO (4 o menos) ---
-        df_alerta = df_p[df_p['stock'] <= 4]
+        # --- SECCIÓN DE ALERTAS ESTÉTICAS ---
+        df_alerta = df_p[df_p['stock'] <= 4].sort_values('stock')
+        
         if not df_alerta.empty:
-            st.error("### ⚠️ ALERTA: Stock Crítico (4 unidades o menos)")
-            for _, fila in df_alerta.iterrows():
-                st.warning(f"**{fila['nombre']}** ({fila['tipo']}): solo quedan **{fila['stock']}** unidades.")
-            st.markdown("---")
+            st.markdown("#### 🚨 Disponibilidad Crítica")
+            # Creamos una fila de "badges" o etiquetas pequeñas
+            cols_alerta = st.columns(len(df_alerta) if len(df_alerta) <= 4 else 4)
+            
+            for i, (_, fila) in enumerate(df_alerta.iterrows()):
+                # Usamos HTML para un diseño tipo "píldora" profesional
+                badge_html = f"""
+                <div style="
+                    background-color: #4a1111; 
+                    color: #ff4b4b; 
+                    padding: 8px 12px; 
+                    border-radius: 10px; 
+                    border: 1px solid #ff4b4b;
+                    margin-bottom: 10px;
+                    font-size: 14px;
+                    text-align: center;">
+                    <strong>{fila['nombre']}</strong><br>
+                    {fila['stock']} unidades
+                </div>
+                """
+                with cols_alerta[i % 4]:
+                    st.markdown(badge_html, unsafe_allow_html=True)
+        
+        st.markdown("---")
 
         # --- TABLAS DETALLADAS ---
         col1, col2 = st.columns(2)
@@ -90,7 +109,7 @@ if menu == "📊 Panel Principal":
             st.dataframe(df_con[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
             
     else:
-        st.info("No hay productos registrados en la base de datos.")
+        st.info("No hay productos registrados.")
 
 # --- MÓDULO 2: REGISTRAR VENTA ---
 elif menu == "🛒 Registrar Venta":
