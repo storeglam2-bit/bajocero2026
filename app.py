@@ -420,9 +420,17 @@ elif menu == "Entrada Producción":
 # --- MÓDULO 4: CATÁLOGO PRODUCTOS (DISEÑO DE TARJETAS PREMIUM) ---
 elif menu == "Catálogo Productos":
     st.markdown("<h1 style='text-align: center; color: #00f2fe;'>🥤 Catálogo de Sabores</h1>", unsafe_allow_html=True)
-    df_p = cargar_datos("productos")
     
-    # --- 1. AGREGAR NUEVO SABOR (DISEÑO LIMPIO) ---
+    # Carga de datos
+    df_p = cargar_datos("productos")
+
+    # --- VALIDACIÓN DE COLUMNAS (Para evitar el KeyError) ---
+    columnas_necesarias = ['nombre', 'tipo', 'precio', 'stock', 'promo']
+    for col in columnas_necesarias:
+        if col not in df_p.columns:
+            df_p[col] = "No" if col == 'promo' else 0 if col in ['precio', 'stock'] else "Desconocido"
+
+    # --- 1. AGREGAR NUEVO SABOR ---
     with st.expander("✨ AÑADIR NUEVA REFERENCIA AL SISTEMA", expanded=False):
         with st.form("nuevo_sabor", clear_on_submit=True):
             c1, c2 = st.columns(2)
@@ -431,13 +439,11 @@ elif menu == "Catálogo Productos":
                 t = st.selectbox("Tipo de Producto", ["Sin Licor", "Con Licor"])
             with c2:
                 promo_opt = st.selectbox("¿Es una oferta especial? (Promo)", ["No", "Si"])
-                # Lógica de precio dinámico sugerido
                 precio_sug = 30000 if (t == "Sin Licor" and promo_opt == "Si") else 36000 if t == "Sin Licor" else 40000
                 p = st.number_input("Precio de Venta ($)", min_value=0, step=500, value=precio_sug)
             
             if st.form_submit_button("🚀 GUARDAR EN CATÁLOGO", use_container_width=True):
                 if n:
-                    # Evitar duplicados (Mejora de robustez)
                     nombre_nuevo = n.strip().upper()
                     if not df_p.empty and nombre_nuevo in df_p['nombre'].str.upper().values:
                         st.error(f"El sabor '{nombre_nuevo}' ya existe.")
@@ -447,6 +453,7 @@ elif menu == "Catálogo Productos":
                         try:
                             conn.update(worksheet="productos", data=df_f)
                             st.success(f"✅ {n} añadido correctamente.")
+                            st.cache_data.clear() # Limpiar cache para ver el cambio
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error al guardar: {e}")
@@ -455,24 +462,23 @@ elif menu == "Catálogo Productos":
 
     # --- 2. VISTA DE CATÁLOGO EN TARJETAS ---
     if not df_p.empty:
-        # Buscador rápido para el catálogo
         busqueda = st.text_input("🔍 Buscar sabor en el catálogo...", placeholder="Escribe el nombre del sabor")
         
         df_show = df_p.copy()
         if busqueda:
-            df_show = df_show[df_show['nombre'].str.contains(busqueda, case=False)]
+            df_show = df_show[df_show['nombre'].str.contains(busqueda, case=False, na=False)]
 
-        # Creación de Grid de Tarjetas (3 columnas en desktop, se apilan en móvil)
+        # Grid de Tarjetas
         cols = st.columns(3)
         
         for i, (_, fila) in enumerate(df_show.iterrows()):
             with cols[i % 3]:
-                # Estilo dinámico según tipo y promo
-                es_promo = str(fila['promo']).strip() == "Si"
+                # Lógica de colores y etiquetas
+                es_promo = str(fila['promo']).strip().lower() == "si"
                 color_borde = "#f1c40f" if es_promo else "#00f2fe" if fila['tipo'] == "Con Licor" else "#ff4b4b"
-                label_promo = "🔥 ¡PROMO!" if es_promo else fila['tipo'].upper()
+                label_promo = "🔥 ¡PROMO!" if es_promo else str(fila['tipo']).upper()
                 
-                # HTML de la Tarjeta
+                # Renderizado HTML (IMPORTANTE: unsafe_allow_html=True)
                 st.markdown(f"""
                     <div style="
                         background-color: #1a1a1a; 
@@ -481,7 +487,7 @@ elif menu == "Catálogo Productos":
                         border-top: 5px solid {color_borde};
                         margin-bottom: 20px;
                         box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-                        height: 180px;
+                        height: 190px;
                         position: relative;
                     ">
                         <span style="
@@ -496,23 +502,23 @@ elif menu == "Catálogo Productos":
                             right: 10px;
                         ">{label_promo}</span>
                         
-                        <h3 style="margin-top: 10px; color: white; font-size: 18px;">{fila['nombre']}</h3>
+                        <h3 style="margin-top: 10px; color: white; font-size: 18px; margin-bottom:0;">{fila['nombre']}</h3>
                         <hr style="border: 0.1px solid #333; margin: 10px 0;">
                         
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
-                                <p style="color: #888; font-size: 12px; margin: 0;">Precio Venta</p>
-                                <p style="color: {color_borde}; font-size: 20px; font-weight: bold; margin: 0;">${int(fila['precio']):,}</p>
+                                <p style="color: #888; font-size: 11px; margin: 0;">Precio Venta</p>
+                                <p style="color: {color_borde}; font-size: 18px; font-weight: bold; margin: 0;">${int(fila['precio']):,}</p>
                             </div>
                             <div style="text-align: right;">
-                                <p style="color: #888; font-size: 12px; margin: 0;">Stock</p>
-                                <p style="color: white; font-size: 20px; margin: 0;">{int(fila['stock'])} <small style="font-size:10px;">und</small></p>
+                                <p style="color: #888; font-size: 11px; margin: 0;">Stock</p>
+                                <p style="color: white; font-size: 18px; margin: 0;">{int(fila['stock'])} <small style="font-size:9px;">und</small></p>
                             </div>
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
     else:
-        st.info("El catálogo está vacío. Utiliza el formulario de arriba para añadir productos.")
+        st.info("El catálogo está vacío.")
 
 
 # --- MÓDULO 5: GESTIÓN CLIENTES (DISEÑO CRM PRO) ---
