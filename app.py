@@ -96,7 +96,7 @@ with st.sidebar:
 # st.set_page_config(initial_sidebar_state="collapsed", ...)
 
 # --- MÓDULO 1: PANEL PRINCIPAL (RESTAURADO + PROMO DETALLADA) ---
-if menu == "📊 Panel Principal":
+if menu == "Panel Principal":
     st.markdown("<h1 style='text-align: center; color: #00f2fe;'>📊 Resumen de Inventario</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
 
@@ -208,7 +208,7 @@ if menu == "📊 Panel Principal":
         st.info("No hay productos registrados en la base de datos.")
 
 ## --- MÓDULO 2: REGISTRAR VENTA (INTERFAZ POS PREMIUM) ---
-elif menu == "🛒 Registrar Venta":
+elif menu == "Registrar Venta":
     st.markdown("<h1 style='text-align: center; color: #00f2fe;'>🛒 Punto de Venta Premium</h1>", unsafe_allow_html=True)
     
     if 'carrito' not in st.session_state:
@@ -345,7 +345,7 @@ elif menu == "🛒 Registrar Venta":
             st.info("👋 El carrito está esperando productos.")
 
 # --- MÓDULO 3: ENTRADA PRODUCCIÓN (REDISEÑO PREMIUM) ---
-elif menu == "📥 Entrada Producción":
+elif menu == "Entrada Producción":
     st.markdown("<h1 style='text-align: center;'>📥 Ingreso de Producción</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
     
@@ -417,7 +417,7 @@ elif menu == "📥 Entrada Producción":
         st.warning("⚠️ No hay productos en el catálogo. Primero registra sabores en 'Catálogo Productos'.")
 
 # --- MÓDULO 4: CATÁLOGO PRODUCTOS (CON OPCIÓN PROMO) ---
-elif menu == "🥤 Catálogo Productos":
+elif menu == "Catálogo Productos":
     st.title("🥤 Gestión de Catálogo")
     df_p = cargar_datos("productos")
     
@@ -457,7 +457,7 @@ elif menu == "🥤 Catálogo Productos":
             hide_index=True
         )
 # --- MÓDULO 5: GESTIÓN CLIENTES (VERSIÓN COMPLETA CON ELIMINACIÓN) ---
-elif menu == "🏢 Gestión Clientes":
+elif menu == "Gestión Clientes":
     st.markdown("<h1 style='text-align: center;'>🏢 Directorio de Clientes</h1>", unsafe_allow_html=True)
     df_c = cargar_datos("clientes")
     
@@ -533,7 +533,7 @@ elif menu == "🏢 Gestión Clientes":
         st.dataframe(df_filtrado.sort_values("NOMBRE DE LA EMPRESA"), use_container_width=True, hide_index=True)
 
 # --- MÓDULO 6: CENTRO DE INTELIGENCIA (ORGANIZACIÓN PROFESIONAL) ---
-elif menu == "📋 Historial de Ventas":
+elif menu == "Historial de Ventas":
     st.markdown("""
         <h1 style='text-align: center; color: #00f2fe; margin-bottom: 20px;'>
             📋 Centro de Inteligencia de Ventas
