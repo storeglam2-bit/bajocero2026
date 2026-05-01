@@ -6,7 +6,8 @@ import pandas as pd
 st.set_page_config(
     page_title="Bajo Cero - Gestión de Inventario",
     page_icon="❄️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
 # --- CONEXIÓN A GOOGLE SHEETS ---
@@ -25,26 +26,76 @@ def cargar_datos(pestana):
         st.error(f"⚠️ Error en pestaña '{pestana}': {e}")
         return pd.DataFrame()
 
+from streamlit_option_menu import option_menu
+
+# --- CONFIGURACIÓN DE ESTILO (Inyectar en el inicio de la app) ---
+st.markdown("""
+    <style>
+        /* Estilo para que el sidebar se sienta más moderno */
+        [data-testid="stSidebar"] {
+            background-color: #0e1117;
+            border-right: 1px solid #333;
+        }
+        /* Ajuste de logo */
+        .sidebar-logo {
+            display: flex;
+            justify-content: center;
+            padding: 10px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- BARRA LATERAL (SIDEBAR) ---
 with st.sidebar:
-    # Solución al MediaFileStorageError: Si logo.png no existe, muestra texto
+    # Contenedor de Logo
+    st.markdown('<div class="sidebar-logo">', unsafe_allow_html=True)
     try:
-        st.image("logo.png", use_container_width=True)
+        st.image("logo.png", width=150)
     except:
-        st.title("❄️ BAJO CERO")
+        st.markdown("<h2 style='text-align: center; color: #00f2fe;'>❄️ BAJO CERO</h2>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # MENÚ PROFESIONAL CON AUTO-OCULTADO
+    # Al cambiar de opción, Streamlit refresca la página, y al tener 'initial_sidebar_state="collapsed"' 
+    # en st.set_page_config, se cerrará solo.
+    menu = option_menu(
+        menu_title="NAVEGACIÓN",
+        options=["Panel Principal", "Registrar Venta", "Entrada Producción", "Catálogo Productos", "Gestión Clientes", "Historial de Ventas"],
+        icons=["speedometer2", "cart3", "box-seam", "cup-straw", "building", "clipboard-data"], 
+        menu_icon="cast", 
+        default_index=0,
+        styles={
+            "container": {"padding": "5!important", "background-color": "transparent"},
+            "icon": {"color": "#00f2fe", "font-size": "18px"}, 
+            "nav-link": {
+                "font-size": "14px", 
+                "text-align": "left", 
+                "margin":"5px", 
+                "--hover-color": "#1e1e1e",
+                "color": "white"
+            },
+            "nav-link-selected": {
+                "background-color": "#1a1a1a", 
+                "border-left": "4px solid #00f2fe",
+                "font-weight": "bold"
+            },
+        }
+    )
 
     st.markdown("---")
-    menu = st.radio(
-        "MENÚ DE NAVEGACIÓN",
-        ["📊 Panel Principal", "🛒 Registrar Venta", "📥 Entrada Producción", "🥤 Catálogo Productos", "🏢 Gestión Clientes", "📋 Historial de Ventas"]
-    )
-    st.markdown("---")
-    if st.button("🔄 Refrescar Datos"):
+    
+    # Botón de refresco con mejor diseño
+    if st.button("🔄 Actualizar Sistema", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
+# --- TRUCO CRUCIAL PARA EL AUTO-OCULTADO ---
+# Asegúrate de que al inicio de todo tu archivo app.py tengas esto:
+# st.set_page_config(initial_sidebar_state="collapsed", ...)
+
 # --- MÓDULO 1: PANEL PRINCIPAL (RESTAURADO + PROMO DETALLADA) ---
-# --- MÓDULO 1: PANEL PRINCIPAL (VERSION FINAL ORDENADA) ---
 if menu == "📊 Panel Principal":
     st.markdown("<h1 style='text-align: center; color: #00f2fe;'>📊 Resumen de Inventario</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
