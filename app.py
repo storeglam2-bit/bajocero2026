@@ -182,9 +182,6 @@ if menu == "Panel Principal":
 
         # --- TABLAS DETALLADAS (Ocultando la columna promo visualmente) ---
         c_t1, c_t2 = st.columns(2)
-        with c_t1:
-            st.markdown("### 🥤 Sin Licor")
-            # Mostramos 'precio_visual' en lugar de 'precio'
         with col_left:
             st.subheader("🥤 Sin Licor (Regulares)")
             st.dataframe(df_sin_reg[['nombre', 'stock', 'precio_display']].rename(columns={'precio_display': 'precio'}), 
@@ -195,8 +192,6 @@ if menu == "Panel Principal":
             st.dataframe(df_con_lic[['nombre', 'stock', 'precio']], 
                          use_container_width=True, hide_index=True)
 
-        with c_t2:
-            st.markdown("### 🍸 Con Licor")
         # Fila 2: Solo si existen Promociones
         if not df_sin_pro.empty:
             st.markdown("<br>", unsafe_allow_html=True)
