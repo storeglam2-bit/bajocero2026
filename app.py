@@ -116,10 +116,6 @@ if menu == "📊 Panel Principal":
             st.markdown("<br><p style='text-align:center; color:#888; font-size:13px;'>⚠️ NECESITAN REPOSICIÓN</p>", unsafe_allow_html=True)
             cols = st.columns(5)
             for i, (_, fila) in enumerate(df_alerta.iterrows()):
-                color_t = "#ff4b4b" if fila['stock'] == 0 else ("#ffa500" if fila['stock'] <= 2 else "#00f2fe")
-                with cols_alerta[i % 5]:
-                    st.markdown(f'<div style="background-color:#0e1117;padding:8px;border-radius:8px;border:1px solid {color_t};text-align:center;"><p style="margin:0;font-size:11px;font-weight:bold;color:white;">{fila["nombre"]}</p><p style="margin:0;font-size:14px;color:{color_t};font-weight:bold;">{fila["stock"]} UND</p></div>', unsafe_allow_html=True)
-        
                 color_a = "#ff4b4b" if fila['stock'] == 0 else ("#ffa500" if fila['stock'] <= 2 else "#00f2fe")
                 with cols[i % 5]:
                     st.markdown(f'''<div style="background-color:#0e1117;padding:8px;border-radius:8px;border:1px solid {color_a};text-align:center;margin-bottom:5px;">
