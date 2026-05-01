@@ -1,146 +1,115 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
+from streamlit_option_menu import option_menu
 
-# --- CONFIGURACIÓN DE PÁGINA ---
+# --- 1. CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
-    page_title="Bajo Cero - Gestión de Inventario",
-    page_icon="❄️",
-    layout="wide"
+    page_title="Bajo Cero | Gestión",
+    page_icon="🍦",
+    layout="wide",
+    initial_sidebar_state="collapsed" # Mantiene el sidebar cerrado por defecto
 )
 
-# --- CONEXIÓN A GOOGLE SHEETS ---
-# Se utiliza la URL de la hoja definida en tus Secrets de Streamlit
-conn = st.connection("gsheets", type=GSheetsConnection)
+# --- 2. ESTILOS CSS PERSONALIZADOS (Look Profesional) ---
+st.markdown("""
+    <style>
+        /* Ocultar sidebar en móvil por completo si se desea */
+        [data-testid="stSidebar"] { display: none; }
+        
+        /* Ajuste de márgenes para el menú superior */
+        .block-container { padding-top: 1rem; }
+        
+        /* Estilo para las tablas de Streamlit */
+        .stDataFrame { border: 1px solid #333; border-radius: 10px; }
+    </style>
+""", unsafe_allow_html=True)
 
-@st.cache_data(ttl=60)
-def cargar_datos(pestana):
-    try:
-        # ttl=0 asegura que los datos se lean en tiempo real sin caché
-        df = conn.read(worksheet=pestana, ttl=0)
-        # Limpiamos nombres de columnas: elimina espacios y convierte a minúsculas
-        df.columns = df.columns.str.strip().str.lower()
-        return df.dropna(how='all')
-    except Exception as e:
-        st.error(f"⚠️ Error en pestaña '{pestana}': {e}")
-        return pd.DataFrame()
+# --- 3. FUNCIONES CORE (Simuladas - Usa tus funciones reales de Sheets aquí) ---
+def cargar_datos(tipo):
+    # Aquí iría tu lógica de gspread / conectar con Google Sheets
+    # Por ahora, asegúrate de que tu función cargar_datos devuelva el DataFrame correcto
+    return st.session_state.get(f"df_{tipo}", pd.DataFrame())
 
-# --- BARRA LATERAL (SIDEBAR) ---
-with st.sidebar:
-    # Solución al MediaFileStorageError: Si logo.png no existe, muestra texto
-    try:
-        st.image("logo.png", use_container_width=True)
-    except:
-        st.title("❄️ BAJO CERO")
+# --- 4. NAVEGACIÓN (MENÚ SUPERIOR TIPO APP) ---
+# Sustituimos el sidebar por un menú horizontal más cómodo para el pulgar
+menu = option_menu(
+    menu_title=None,
+    options=["Panel Principal", "Ventas", "Producción", "Catálogo", "Clientes"],
+    icons=["house", "cart", "plus-circle", "tags", "people"],
+    menu_icon="cast",
+    default_index=0,
+    orientation="horizontal",
+    styles={
+        "container": {"padding": "0!important", "background-color": "#0e1117", "border-bottom": "1px solid #333"},
+        "icon": {"color": "#00f2fe", "font-size": "14px"}, 
+        "nav-link": {"font-size": "12px", "text-align": "center", "margin":"0px", "--hover-color": "#1e1e1e"},
+        "nav-link-selected": {"background-color": "#1a1a1a", "color": "#00f2fe", "border-bottom": "3px solid #00f2fe", "border-radius": "0px"}
+    }
+)
+
+# --- 5. LÓGICA DE LOS MÓDULOS ---
+
+# --- MÓDULO 1: PANEL PRINCIPAL ---
+if menu == "Panel Principal":
+    st.markdown("<h1 style='text-align: center; color: #00f2fe; font-size: 24px;'>📊 Resumen de Inventario</h1>", unsafe_allow_html=True)
     
-    st.markdown("---")
-    menu = st.radio(
-        "MENÚ DE NAVEGACIÓN",
-        ["📊 Panel Principal", "🛒 Registrar Venta", "📥 Entrada Producción", "🥤 Catálogo Productos", "🏢 Gestión Clientes", "📋 Historial de Ventas"]
-    )
-    st.markdown("---")
-    if st.button("🔄 Refrescar Datos"):
-        st.cache_data.clear()
-        st.rerun()
-
-# --- MÓDULO 1: PANEL PRINCIPAL (VERSION FINAL ORDENADA) ---
-if menu == "📊 Panel Principal":
-    st.markdown("<h1 style='text-align: center; color: #00f2fe;'>📊 Resumen de Inventario</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
     
     if not df_p.empty:
-        # 1. PREPARACIÓN DE DATOS Y LÓGICA INVISIBLE
-        if 'promo' not in df_p.columns:
-            df_p['promo'] = "No"
-            
+        # Preparación de datos
+        if 'promo' not in df_p.columns: df_p['promo'] = "No"
         df_p['stock'] = pd.to_numeric(df_p['stock'], errors='coerce').fillna(0).astype(int)
         df_p['precio'] = pd.to_numeric(df_p['precio'], errors='coerce').fillna(0).astype(int)
         
-        # Función para determinar el precio real basado en si es promo
-        def obtener_precio_final(row):
+        # Precio dinámico para Promos ($30,000)
+        def calc_precio(row):
             if str(row['tipo']).strip() == "Sin Licor" and str(row['promo']).strip() == "Si":
                 return 30000
             return row['precio']
-
-        df_p['precio_display'] = df_p.apply(obtener_precio_final, axis=1)
-        df_p['valor_total_fila'] = df_p['stock'] * df_p['precio_display']
         
-        # SEPARACIÓN DE GRUPOS
+        df_p['precio_vis'] = df_p.apply(calc_precio, axis=1)
+        df_p['subtotal'] = df_p['stock'] * df_p['precio_vis']
+        
+        # Segmentación
         df_sin_reg = df_p[(df_p['tipo'].str.contains("Sin", case=False)) & (df_p['promo'] != "Si")]
         df_sin_pro = df_p[(df_p['tipo'].str.contains("Sin", case=False)) & (df_p['promo'] == "Si")]
         df_con_lic = df_p[df_p['tipo'].str.contains("Con", case=False)]
-        
-        # 2. TARJETAS DE INDICADORES (KPIs)
-        c1, c2, c3, c4 = st.columns(4)
-        
+
+        # --- TARJETAS (KPIs) ---
+        c1, c2, c3 = st.columns(3) # En móvil se apilan automáticamente
         with c1:
-            st.markdown(f'''<div style="background-color:#1a1a1a;padding:12px;border-radius:10px;border-left:5px solid #ff4b4b;text-align:center;">
-                <p style="margin:0;font-size:11px;color:#888;">🥤 SIN LICOR (REG)</p>
-                <h3 style="margin:0;color:white;font-size:20px;">{df_sin_reg["stock"].sum()} <span style="font-size:10px;">UND</span></h3>
-                <p style="margin:0;color:#ff4b4b;font-size:14px;font-weight:bold;">$ {int(df_sin_reg["valor_total_fila"].sum()):,}</p>
-            </div>''', unsafe_allow_html=True)
-
+            st.markdown(f'<div style="background-color:#1a1a1a;padding:10px;border-radius:10px;border-left:5px solid #ff4b4b;text-align:center;"><p style="margin:0;font-size:10px;color:#888;">🥤 SIN LICOR (REG)</p><h3 style="margin:0;color:white;font-size:18px;">{df_sin_reg["stock"].sum()} <span style="font-size:10px;">UND</span></h3><p style="margin:0;color:#ff4b4b;font-size:12px;font-weight:bold;">$ {int(df_sin_reg["subtotal"].sum()):,}</p></div>', unsafe_allow_html=True)
         with c2:
-            color_promo = "#f1c40f" if not df_sin_pro.empty else "#333"
-            st.markdown(f'''<div style="background-color:#1a1a1a;padding:12px;border-radius:10px;border-left:5px solid {color_promo};text-align:center;">
-                <p style="margin:0;font-size:11px;color:#888;">🔥 SIN LICOR (PROMO)</p>
-                <h3 style="margin:0;color:white;font-size:20px;">{df_sin_pro["stock"].sum()} <span style="font-size:10px;">UND</span></h3>
-                <p style="margin:0;color:{color_promo};font-size:14px;font-weight:bold;">$ {int(df_sin_pro["valor_total_fila"].sum()):,}</p>
-            </div>''', unsafe_allow_html=True)
-
+            st.markdown(f'<div style="background-color:#1a1a1a;padding:10px;border-radius:10px;border-left:5px solid #f1c40f;text-align:center;"><p style="margin:0;font-size:10px;color:#888;">🔥 SIN LICOR (PROMO)</p><h3 style="margin:0;color:white;font-size:18px;">{df_sin_pro["stock"].sum()} <span style="font-size:10px;">UND</span></h3><p style="margin:0;color:#f1c40f;font-size:12px;font-weight:bold;">$ {int(df_sin_pro["subtotal"].sum()):,}</p></div>', unsafe_allow_html=True)
         with c3:
-            st.markdown(f'''<div style="background-color:#1a1a1a;padding:12px;border-radius:10px;border-left:5px solid #00f2fe;text-align:center;">
-                <p style="margin:0;font-size:11px;color:#888;">🍸 CON LICOR</p>
-                <h3 style="margin:0;color:white;font-size:20px;">{df_con_lic["stock"].sum()} <span style="font-size:10px;">UND</span></h3>
-                <p style="margin:0;color:#00f2fe;font-size:14px;font-weight:bold;">$ {int(df_con_lic["valor_total_fila"].sum()):,}</p>
-            </div>''', unsafe_allow_html=True)
+            st.markdown(f'<div style="background-color:#1a1a1a;padding:10px;border-radius:10px;border-left:5px solid #00f2fe;text-align:center;"><p style="margin:0;font-size:10px;color:#888;">🍸 CON LICOR</p><h3 style="margin:0;color:white;font-size:18px;">{df_con_lic["stock"].sum()} <span style="font-size:10px;">UND</span></h3><p style="margin:0;color:#00f2fe;font-size:12px;font-weight:bold;">$ {int(df_con_lic["subtotal"].sum()):,}</p></div>', unsafe_allow_html=True)
 
-        with c4:
-            total_valor = df_p['valor_total_fila'].sum()
-            st.markdown(f'''<div style="background-color:#1a1a1a;padding:12px;border-radius:10px;border-left:5px solid #2ecc71;text-align:center;">
-                <p style="margin:0;font-size:11px;color:#888;">💰 VALOR TOTAL</p>
-                <h3 style="margin:0;color:white;font-size:20px;">{df_p["stock"].sum()} <span style="font-size:10px;">UND</span></h3>
-                <p style="margin:0;color:#2ecc71;font-size:14px;font-weight:bold;">$ {int(total_valor):,}</p>
-            </div>''', unsafe_allow_html=True)
-
-        # 3. ALERTAS DE REPOSICIÓN
+        # --- ALERTAS (Diseño Compacto) ---
         df_alerta = df_p[df_p['stock'] <= 4].sort_values('stock')
         if not df_alerta.empty:
-            st.markdown("<br><p style='text-align:center; color:#888; font-size:13px;'>⚠️ NECESITAN REPOSICIÓN</p>", unsafe_allow_html=True)
-            cols = st.columns(5)
+            st.markdown("<p style='text-align:center; color:#ff4b4b; font-size:12px; margin-top:15px;'>⚠️ REPOSICIÓN URGENTE</p>", unsafe_allow_html=True)
+            cols_al = st.columns(len(df_alerta) if len(df_alerta) < 5 else 5)
             for i, (_, fila) in enumerate(df_alerta.iterrows()):
-                color_a = "#ff4b4b" if fila['stock'] == 0 else ("#ffa500" if fila['stock'] <= 2 else "#00f2fe")
-                with cols[i % 5]:
-                    st.markdown(f'''<div style="background-color:#0e1117;padding:8px;border-radius:8px;border:1px solid {color_a};text-align:center;margin-bottom:5px;">
-                        <p style="margin:0;font-size:11px;font-weight:bold;color:white;white-space:nowrap;overflow:hidden;">{fila["nombre"]}</p>
-                        <p style="margin:0;font-size:15px;color:{color_a};font-weight:bold;">{fila["stock"]} <span style="font-size:10px;">UND</span></p>
-                    </div>''', unsafe_allow_html=True)
+                color_a = "#ff4b4b" if fila['stock'] == 0 else "#ffa500"
+                with cols_al[i % 5]:
+                    st.markdown(f'<div style="border:1px solid {color_a};padding:5px;border-radius:5px;text-align:center;font-size:10px;color:white;">{fila["nombre"]}<br><b style="color:{color_a};">{fila["stock"]} UND</b></div>', unsafe_allow_html=True)
 
         st.markdown("---")
 
-        # 4. TABLAS DETALLADAS POR CATEGORÍA
-        # Fila 1: Regulares vs Con Licor
-        col_left, col_right = st.columns(2)
+        # --- TABLAS DETALLADAS ---
+        tab1, tab2 = st.tabs(["🥤 Sin Licor", "🍸 Con Licor"])
+        with tab1:
+            if not df_sin_pro.empty:
+                st.markdown("##### 🔥 Promociones ($30,000)")
+                st.dataframe(df_sin_pro[['nombre', 'stock', 'precio_vis']].rename(columns={'precio_vis':'precio'}), use_container_width=True, hide_index=True)
+            st.markdown("##### 🥤 Regulares")
+            st.dataframe(df_sin_reg[['nombre', 'stock', 'precio_vis']].rename(columns={'precio_vis':'precio'}), use_container_width=True, hide_index=True)
         
-        with col_left:
-            st.subheader("🥤 Sin Licor (Regulares)")
-            st.dataframe(df_sin_reg[['nombre', 'stock', 'precio_display']].rename(columns={'precio_display': 'precio'}), 
-                         use_container_width=True, hide_index=True)
-
-        with col_right:
-            st.subheader("🍸 Con Licor")
-            st.dataframe(df_con_lic[['nombre', 'stock', 'precio']], 
-                         use_container_width=True, hide_index=True)
-            
-        # Fila 2: Solo si existen Promociones
-        if not df_sin_pro.empty:
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("### 🔥 Promociones Activas (Sin Licor)")
-            st.dataframe(df_sin_pro[['nombre', 'stock', 'precio_display']].rename(columns={'precio_display': 'precio'}), 
-                         use_container_width=True, hide_index=True)
+        with tab2:
+            st.dataframe(df_con_lic[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
 
     else:
-        st.info("No hay productos registrados en la base de datos.")
+        st.info("Cargando datos...")
 
 ## --- MÓDULO 2: REGISTRAR VENTA (INTERFAZ POS PREMIUM) ---
 elif menu == "🛒 Registrar Venta":
