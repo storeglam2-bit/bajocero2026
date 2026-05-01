@@ -7,7 +7,7 @@ st.set_page_config(
     page_title="Bajo Cero - Gestión de Inventario",
     page_icon="❄️",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="auto"
 )
 
 # --- CONEXIÓN A GOOGLE SHEETS ---
