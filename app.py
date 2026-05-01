@@ -416,48 +416,105 @@ elif menu == "Entrada Producción":
     else:
         st.warning("⚠️ No hay productos en el catálogo. Primero registra sabores en 'Catálogo Productos'.")
 
-# --- MÓDULO 4: CATÁLOGO PRODUCTOS (CON OPCIÓN PROMO) ---
+
+# --- MÓDULO 4: CATÁLOGO PRODUCTOS (DISEÑO DE TARJETAS PREMIUM) ---
 elif menu == "Catálogo Productos":
-    st.title("🥤 Gestión de Catálogo")
+    st.markdown("<h1 style='text-align: center; color: #00f2fe;'>🥤 Catálogo de Sabores</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
     
-    with st.expander("✨ AÑADIR NUEVO SABOR", expanded=False):
-        with st.form("nuevo"):
-            c1, c2, c3 = st.columns(3)
-            n = c1.text_input("Nombre del Sabor")
-            t = c1.selectbox("Tipo", ["Sin Licor", "Con Licor"])
-            # Si es Sin Licor, preguntamos si es Promo
-            promo_opt = c2.selectbox("¿Es Promoción?", ["No", "Si"])
+    # --- 1. AGREGAR NUEVO SABOR (DISEÑO LIMPIO) ---
+    with st.expander("✨ AÑADIR NUEVA REFERENCIA AL SISTEMA", expanded=False):
+        with st.form("nuevo_sabor", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+            with c1:
+                n = st.text_input("Nombre del Sabor", placeholder="Ej: Maracuyá Explosivo")
+                t = st.selectbox("Tipo de Producto", ["Sin Licor", "Con Licor"])
+            with c2:
+                promo_opt = st.selectbox("¿Es una oferta especial? (Promo)", ["No", "Si"])
+                # Lógica de precio dinámico sugerido
+                precio_sug = 30000 if (t == "Sin Licor" and promo_opt == "Si") else 36000 if t == "Sin Licor" else 40000
+                p = st.number_input("Precio de Venta ($)", min_value=0, step=500, value=precio_sug)
             
-            # Precio sugerido automático
-            precio_defecto = 36000
-            if t == "Sin Licor" and promo_opt == "Si":
-                precio_defecto = 30000
-                
-            p = c3.number_input("Precio de Venta ($)", min_value=0, step=500, value=precio_defecto)
-            
-            if st.form_submit_button("Guardar Sabor"):
+            if st.form_submit_button("🚀 GUARDAR EN CATÁLOGO", use_container_width=True):
                 if n:
-                    # Guardamos la columna 'promo' en el Excel
-                    nueva = pd.DataFrame([{"nombre": n.strip(), "tipo": t, "precio": p, "stock": 0, "promo": promo_opt}])
-                    df_f = pd.concat([df_p, nueva], ignore_index=True)
-                    conn.update(worksheet="productos", data=df_f)
-                    st.cache_data.clear()
-                    st.rerun()
+                    # Evitar duplicados (Mejora de robustez)
+                    nombre_nuevo = n.strip().upper()
+                    if not df_p.empty and nombre_nuevo in df_p['nombre'].str.upper().values:
+                        st.error(f"El sabor '{nombre_nuevo}' ya existe.")
+                    else:
+                        nueva = pd.DataFrame([{"nombre": n.strip(), "tipo": t, "precio": p, "stock": 0, "promo": promo_opt}])
+                        df_f = pd.concat([df_p, nueva], ignore_index=True)
+                        try:
+                            conn.update(worksheet="productos", data=df_f)
+                            st.success(f"✅ {n} añadido correctamente.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error al guardar: {e}")
 
+    st.markdown("---")
+
+    # --- 2. VISTA DE CATÁLOGO EN TARJETAS ---
     if not df_p.empty:
-        # Mostramos la tabla con la columna Promo
-        st.dataframe(
-            df_p[['nombre', 'tipo', 'promo', 'precio', 'stock']].sort_values(['tipo', 'promo']), 
-            column_config={
-                "promo": st.column_config.SelectboxColumn("Oferta", options=["Si", "No"]),
-                "precio": st.column_config.NumberColumn("Precio", format="$ %d")
-            },
-            use_container_width=True, 
-            hide_index=True
-        )
-
+        # Buscador rápido para el catálogo
+        busqueda = st.text_input("🔍 Buscar sabor en el catálogo...", placeholder="Escribe el nombre del sabor")
         
+        df_show = df_p.copy()
+        if busqueda:
+            df_show = df_show[df_show['nombre'].str.contains(busqueda, case=False)]
+
+        # Creación de Grid de Tarjetas (3 columnas en desktop, se apilan en móvil)
+        cols = st.columns(3)
+        
+        for i, (_, fila) in enumerate(df_show.iterrows()):
+            with cols[i % 3]:
+                # Estilo dinámico según tipo y promo
+                es_promo = str(fila['promo']).strip() == "Si"
+                color_borde = "#f1c40f" if es_promo else "#00f2fe" if fila['tipo'] == "Con Licor" else "#ff4b4b"
+                label_promo = "🔥 ¡PROMO!" if es_promo else fila['tipo'].upper()
+                
+                # HTML de la Tarjeta
+                st.markdown(f"""
+                    <div style="
+                        background-color: #1a1a1a; 
+                        padding: 20px; 
+                        border-radius: 15px; 
+                        border-top: 5px solid {color_borde};
+                        margin-bottom: 20px;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                        height: 180px;
+                        position: relative;
+                    ">
+                        <span style="
+                            background-color: {color_borde}; 
+                            color: black; 
+                            padding: 2px 8px; 
+                            border-radius: 5px; 
+                            font-size: 10px; 
+                            font-weight: bold;
+                            position: absolute;
+                            top: 10px;
+                            right: 10px;
+                        ">{label_promo}</span>
+                        
+                        <h3 style="margin-top: 10px; color: white; font-size: 18px;">{fila['nombre']}</h3>
+                        <hr style="border: 0.1px solid #333; margin: 10px 0;">
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <p style="color: #888; font-size: 12px; margin: 0;">Precio Venta</p>
+                                <p style="color: {color_borde}; font-size: 20px; font-weight: bold; margin: 0;">${int(fila['precio']):,}</p>
+                            </div>
+                            <div style="text-align: right;">
+                                <p style="color: #888; font-size: 12px; margin: 0;">Stock</p>
+                                <p style="color: white; font-size: 20px; margin: 0;">{int(fila['stock'])} <small style="font-size:10px;">und</small></p>
+                            </div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+    else:
+        st.info("El catálogo está vacío. Utiliza el formulario de arriba para añadir productos.")
+
+
 # --- MÓDULO 5: GESTIÓN CLIENTES (DISEÑO CRM PRO) ---
 elif menu == "Gestión Clientes":
     st.markdown("<h1 style='text-align: center; color: #00f2fe;'>🏢 Directorio de Aliados</h1>", unsafe_allow_html=True)
