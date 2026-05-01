@@ -1,66 +1,49 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
+from streamlit_option_menu import option_menu
+from datetime import datetime
+import time
 
-
-# --- CONFIGURACIÓN DE PÁGINA ---
+# --- 1. CONFIGURACIÓN DE PÁGINA (CRUCIAL PARA EL SIDEBAR) ---
 st.set_page_config(
-    page_title="Bajo Cero - Gestión de Inventario",
+    page_title="Bajo Cero - Gestión",
     page_icon="❄️",
     layout="wide",
-    initial_sidebar_state="auto"
+    # 'collapsed' hace que en móviles y PC inicie cerrado, liberando espacio para las tarjetas
+    initial_sidebar_state="collapsed" 
 )
 
-# --- CONEXIÓN A GOOGLE SHEETS ---
-# Se utiliza la URL de la hoja definida en tus Secrets de Streamlit
+# --- 2. CONEXIÓN Y DATOS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 @st.cache_data(ttl=60)
 def cargar_datos(pestana):
     try:
-        # ttl=0 asegura que los datos se lean en tiempo real sin caché
         df = conn.read(worksheet=pestana, ttl=0)
-        # Limpiamos nombres de columnas: elimina espacios y convierte a minúsculas
+        # Normalizamos nombres de columnas a minúsculas para evitar KeyErrors
         df.columns = df.columns.str.strip().str.lower()
         return df.dropna(how='all')
     except Exception as e:
         st.error(f"⚠️ Error en pestaña '{pestana}': {e}")
         return pd.DataFrame()
 
-from streamlit_option_menu import option_menu
-
-# --- CONFIGURACIÓN DE ESTILO (Inyectar en el inicio de la app) ---
+# --- 3. ESTILOS CSS ---
 st.markdown("""
     <style>
-        /* Estilo para que el sidebar se sienta más moderno */
-        [data-testid="stSidebar"] {
-            background-color: #0e1117;
-            border-right: 1px solid #333;
-        }
-        /* Ajuste de logo */
-        .sidebar-logo {
-            display: flex;
-            justify-content: center;
-            padding: 10px;
-        }
+        [data-testid="stSidebar"] { background-color: #0e1117; border-right: 1px solid #333; }
+        .sidebar-logo { display: flex; justify-content: center; padding: 10px; }
+        /* Ajuste para que las tablas de Streamlit se vean mejor en modo oscuro */
+        .stDataFrame { background-color: #1a1a1a; border-radius: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- BARRA LATERAL (SIDEBAR) ---
+# --- 4. BARRA LATERAL ---
 with st.sidebar:
-    # Contenedor de Logo
     st.markdown('<div class="sidebar-logo">', unsafe_allow_html=True)
-    try:
-        st.image("logo.png", width=150)
-    except:
-        st.markdown("<h2 style='text-align: center; color: #00f2fe;'>❄️ BAJO CERO</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #00f2fe;'>❄️ BAJO CERO</h2>", unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
     
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # MENÚ PROFESIONAL CON AUTO-OCULTADO
-    # Al cambiar de opción, Streamlit refresca la página, y al tener 'initial_sidebar_state="collapsed"' 
-    # en st.set_page_config, se cerrará solo.
     menu = option_menu(
         menu_title="NAVEGACIÓN",
         options=["Panel Principal", "Registrar Venta", "Entrada Producción", "Catálogo Productos", "Gestión Clientes", "Historial de Ventas"],
@@ -70,138 +53,37 @@ with st.sidebar:
         styles={
             "container": {"padding": "5!important", "background-color": "transparent"},
             "icon": {"color": "#00f2fe", "font-size": "18px"}, 
-            "nav-link": {
-                "font-size": "14px", 
-                "text-align": "left", 
-                "margin":"5px", 
-                "--hover-color": "#1e1e1e",
-                "color": "white"
-            },
-            "nav-link-selected": {
-                "background-color": "#1a1a1a", 
-                "border-left": "4px solid #00f2fe",
-                "font-weight": "bold"
-            },
+            "nav-link": {"font-size": "14px", "text-align": "left", "margin":"5px", "color": "white"},
+            "nav-link-selected": {"background-color": "#1a1a1a", "border-left": "4px solid #00f2fe"},
         }
     )
-
-    st.markdown("---")
     
-    # Botón de refresco con mejor diseño
-    if st.button("🔄 Actualizar Sistema", use_container_width=True):
+    if st.button("🔄 Refrescar Sistema", use_container_width=True):
         st.cache_data.clear()
         st.rerun()
 
-# --- TRUCO CRUCIAL PARA EL AUTO-OCULTADO ---
-# Asegúrate de que al inicio de todo tu archivo app.py tengas esto:
-# st.set_page_config(initial_sidebar_state="collapsed", ...)
-
-# --- MÓDULO 1: PANEL PRINCIPAL (RESTAURADO + PROMO DETALLADA) ---
+# --- MÓDULO 1: PANEL PRINCIPAL ---
 if menu == "Panel Principal":
     st.markdown("<h1 style='text-align: center; color: #00f2fe;'>📊 Resumen de Inventario</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
 
     if not df_p.empty:
-        # 1. LIMPIEZA Y COLUMNA INVISIBLE
-        # 1. PREPARACIÓN DE DATOS Y LÓGICA INVISIBLE
-        if 'promo' not in df_p.columns:
-            df_p['promo'] = "No"
-
+        # Normalizar columna oferta/promo
+        if 'oferta' in df_p.columns: df_p = df_p.rename(columns={'oferta': 'promo'})
+        
         df_p['stock'] = pd.to_numeric(df_p['stock'], errors='coerce').fillna(0).astype(int)
         df_p['precio'] = pd.to_numeric(df_p['precio'], errors='coerce').fillna(0).astype(int)
 
-        # Función para determinar el precio real basado en si es promo
-        def obtener_precio_final(row):
-            if str(row['tipo']).strip() == "Sin Licor" and str(row['promo']).strip() == "Si":
-                return 30000
-            return row['precio']
-
-        df_p['precio_display'] = df_p.apply(obtener_precio_final, axis=1)
-        df_p['valor_total_fila'] = df_p['stock'] * df_p['precio_display']
-
-        # SEPARACIÓN DE GRUPOS
-        df_sin_reg = df_p[(df_p['tipo'].str.contains("Sin", case=False)) & (df_p['promo'] != "Si")]
-        df_sin_pro = df_p[(df_p['tipo'].str.contains("Sin", case=False)) & (df_p['promo'] == "Si")]
-        df_con_lic = df_p[df_p['tipo'].str.contains("Con", case=False)]
-
-        # --- DISEÑO DE TARJETAS (4 COLUMNAS) ---
-        # 2. TARJETAS DE INDICADORES (KPIs)
+        # KPIs
         c1, c2, c3, c4 = st.columns(4)
+        total_inv = (df_p['stock'] * df_p['precio']).sum()
+        c1.metric("Stock Total", f"{df_p['stock'].sum()} und")
+        c2.metric("Valor Inventario", f"${total_inv:,.0f}")
+        c3.metric("Sabores", len(df_p))
+        c4.metric("Alertas", len(df_p[df_p['stock'] <= 5]))
 
-        with c1:
-            st.markdown(f'''<div style="background-color:#1a1a1a;padding:12px;border-radius:10px;border-left:5px solid #ff4b4b;text-align:center;">
-                <p style="margin:0;font-size:11px;color:#888;">🥤 SIN LICOR (REG)</p>
-                <h3 style="margin:0;color:white;font-size:20px;">{df_sin_reg["stock"].sum()} <span style="font-size:10px;">UND</span></h3>
-                <p style="margin:0;color:#ff4b4b;font-size:14px;font-weight:bold;">$ {int(df_sin_reg["valor_total_fila"].sum()):,}</p>
-            </div>''', unsafe_allow_html=True)
-
-        with c2:
-
-            color_promo = "#f1c40f" if not df_sin_pro.empty else "#333"
-            st.markdown(f'''<div style="background-color:#1a1a1a;padding:12px;border-radius:10px;border-left:5px solid {color_promo};text-align:center;">
-                <p style="margin:0;font-size:11px;color:#888;">🔥 SIN LICOR (PROMO)</p>
-                <h3 style="margin:0;color:white;font-size:20px;">{df_sin_pro["stock"].sum()} <span style="font-size:10px;">UND</span></h3>
-                <p style="margin:0;color:{color_promo};font-size:14px;font-weight:bold;">$ {int(df_sin_pro["valor_total_fila"].sum()):,}</p>
-            </div>''', unsafe_allow_html=True)
-
-        with c3:
-            st.markdown(f'''<div style="background-color:#1a1a1a;padding:12px;border-radius:10px;border-left:5px solid #00f2fe;text-align:center;">
-                <p style="margin:0;font-size:11px;color:#888;">🍸 CON LICOR</p>
-                <h3 style="margin:0;color:white;font-size:20px;">{df_con_lic["stock"].sum()} <span style="font-size:10px;">UND</span></h3>
-                <p style="margin:0;color:#00f2fe;font-size:14px;font-weight:bold;">$ {int(df_con_lic["valor_total_fila"].sum()):,}</p>
-            </div>''', unsafe_allow_html=True)
-
-        with c4:
-        # --- ALERTAS (Mantenemos tu diseño original) ---
-            total_valor = df_p['valor_total_fila'].sum()
-            st.markdown(f'''<div style="background-color:#1a1a1a;padding:12px;border-radius:10px;border-left:5px solid #2ecc71;text-align:center;">
-                <p style="margin:0;font-size:11px;color:#888;">💰 VALOR TOTAL</p>
-                <h3 style="margin:0;color:white;font-size:20px;">{df_p["stock"].sum()} <span style="font-size:10px;">UND</span></h3>
-                <p style="margin:0;color:#2ecc71;font-size:14px;font-weight:bold;">$ {int(total_valor):,}</p>
-            </div>''', unsafe_allow_html=True)
-
-        # 3. ALERTAS DE REPOSICIÓN
-        df_alerta = df_p[df_p['stock'] <= 4].sort_values('stock')
-        if not df_alerta.empty:
-            st.markdown("<br>", unsafe_allow_html=True)
-            cols_alerta = st.columns(5)
-            st.markdown("<br><p style='text-align:center; color:#888; font-size:13px;'>⚠️ NECESITAN REPOSICIÓN</p>", unsafe_allow_html=True)
-            cols = st.columns(5)
-            for i, (_, fila) in enumerate(df_alerta.iterrows()):
-                color_a = "#ff4b4b" if fila['stock'] == 0 else ("#ffa500" if fila['stock'] <= 2 else "#00f2fe")
-                with cols[i % 5]:
-                    st.markdown(f'''<div style="background-color:#0e1117;padding:8px;border-radius:8px;border:1px solid {color_a};text-align:center;margin-bottom:5px;">
-                        <p style="margin:0;font-size:11px;font-weight:bold;color:white;white-space:nowrap;overflow:hidden;">{fila["nombre"]}</p>
-                        <p style="margin:0;font-size:15px;color:{color_a};font-weight:bold;">{fila["stock"]} <span style="font-size:10px;">UND</span></p>
-                    </div>''', unsafe_allow_html=True)
-
-        st.markdown("---")
-
-        # 4. TABLAS DETALLADAS POR CATEGORÍA
-        # Fila 1: Regulares vs Con Licor
-        col_left, col_right = st.columns(2)
-
-        # --- TABLAS DETALLADAS (Ocultando la columna promo visualmente) ---
-        c_t1, c_t2 = st.columns(2)
-        with col_left:
-            st.subheader("🥤 Sin Licor (Regulares)")
-            st.dataframe(df_sin_reg[['nombre', 'stock', 'precio_display']].rename(columns={'precio_display': 'precio'}), 
-                         use_container_width=True, hide_index=True)
-
-        with col_right:
-            st.subheader("🍸 Con Licor")
-            st.dataframe(df_con_lic[['nombre', 'stock', 'precio']], 
-                         use_container_width=True, hide_index=True)
-
-        # Fila 2: Solo si existen Promociones
-        if not df_sin_pro.empty:
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("### 🔥 Promociones Activas (Sin Licor)")
-            st.dataframe(df_sin_pro[['nombre', 'stock', 'precio_display']].rename(columns={'precio_display': 'precio'}), 
-                         use_container_width=True, hide_index=True)
-
-    else:
-        st.info("No hay productos registrados en la base de datos.")
+        st.subheader("📋 Inventario Detallado")
+        st.dataframe(df_p[['nombre', 'tipo', 'stock', 'precio']], use_container_width=True, hide_index=True)
 
 ## --- MÓDULO 2: REGISTRAR VENTA (INTERFAZ POS PREMIUM) ---
 elif menu == "Registrar Venta":
@@ -412,72 +294,41 @@ elif menu == "Entrada Producción":
     else:
         st.warning("⚠️ No hay productos en el catálogo. Primero registra sabores en 'Catálogo Productos'.")
 
-
-# --- MÓDULO 4: CATÁLOGO PRODUCTOS ---
+# --- MÓDULO 4: CATÁLOGO PRODUCTOS (TARJETAS AJUSTADAS) ---
 elif menu == "Catálogo Productos":
-    st.markdown("<h1 style='text-align: center; color: #00f2fe; font-size: 26px;'>🥤 Catálogo Maestro</h1>", unsafe_allow_html=True)
-    
+    st.markdown("<h1 style='text-align: center; color: #00f2fe;'>🥤 Catálogo Maestro</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
     
-    # Normalización de columnas para evitar KeyErrors
     if not df_p.empty:
-        if 'Oferta' in df_p.columns:
-            df_p = df_p.rename(columns={'Oferta': 'promo'})
-        for c in ['nombre', 'tipo', 'precio', 'stock', 'promo']:
-            if c not in df_p.columns: df_p[c] = 0
-
-    # 1. Buscador simple
-    busqueda = st.text_input("🔍 Buscar sabor...", placeholder="Ej: Fresa")
-    if busqueda:
-        df_p = df_p[df_p['nombre'].str.contains(busqueda, case=False, na=False)]
-
-    st.markdown("---")
-
-    # 2. Renderizado de Tarjetas Ajustadas
-    if not df_p.empty:
-        # Usamos 4 columnas para que sean pequeñas y quepan todas
-        cols = st.columns(4)
+        if 'oferta' in df_p.columns: df_p = df_p.rename(columns={'oferta': 'promo'})
         
+        busqueda = st.text_input("🔍 Buscar sabor...", placeholder="Ej: Maracuyá")
+        if busqueda:
+            df_p = df_p[df_p['nombre'].str.contains(busqueda, case=False, na=False)]
+
+        st.markdown("---")
+        
+        # Grid de 4 columnas para que sean pequeñas
+        cols = st.columns(4)
         for i, (_, fila) in enumerate(df_p.iterrows()):
             with cols[i % 4]:
-                # Configuración de color según tipo/promo
-                es_promo = str(fila['promo']).strip().lower() == "si"
+                es_promo = str(fila.get('promo', 'No')).strip().lower() == "si"
                 color = "#f1c40f" if es_promo else "#00f2fe"
                 label = "🔥 PROMO" if es_promo else str(fila['tipo']).upper()
                 
-                # EL TRUCO ESTÁ AQUÍ: unsafe_allow_html=True
+                # HTML de la tarjeta mini
                 st.markdown(f"""
-                    <div style="
-                        background-color: #1a1a1a; 
-                        padding: 10px; 
-                        border-radius: 8px; 
-                        border-top: 3px solid {color};
-                        margin-bottom: 10px;
-                        height: 130px;
-                    ">
-                        <div style="text-align:right;">
-                            <span style="background:{color}; color:black; font-size:8px; padding:1px 4px; border-radius:3px; font-weight:bold;">
-                                {label}
-                            </span>
-                        </div>
-                        <h4 style="color:white; font-size:13px; margin:5px 0; height:35px; overflow:hidden;">
-                            {fila['nombre']}
-                        </h4>
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
-                            <div>
-                                <p style="color:#888; font-size:9px; margin:0;">Precio</p>
-                                <p style="color:{color}; font-size:14px; font-weight:bold; margin:0;">${int(fila['precio']):,}</p>
-                            </div>
-                            <div style="text-align:right;">
-                                <p style="color:#888; font-size:9px; margin:0;">Stock</p>
-                                <p style="color:white; font-size:16px; font-weight:bold; margin:0;">{int(fila['stock'])}</p>
-                            </div>
+                    <div style="background-color:#1a1a1a; padding:10px; border-radius:8px; border-top:3px solid {color}; margin-bottom:10px; height:130px;">
+                        <div style="text-align:right;"><span style="background:{color}; color:black; font-size:8px; padding:1px 4px; border-radius:3px; font-weight:bold;">{label}</span></div>
+                        <h4 style="color:white; font-size:13px; margin:5px 0; height:35px; overflow:hidden;">{fila['nombre']}</h4>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div><p style="color:#888; font-size:9px; margin:0;">Precio</p><p style="color:{color}; font-size:14px; font-weight:bold; margin:0;">${int(fila['precio']):,}</p></div>
+                            <div style="text-align:right;"><p style="color:#888; font-size:9px; margin:0;">Stock</p><p style="color:white; font-size:16px; font-weight:bold; margin:0;">{int(fila['stock'])}</p></div>
                         </div>
                     </div>
-                """, unsafe_allow_html=True) # <--- ESTO ES LO QUE FALTA EN TU CÓDIGO ACTUAL
+                """, unsafe_allow_html=True)
     else:
-        st.warning("No se encontraron productos.")
-
+        st.warning("No hay productos.")
 
 # --- MÓDULO 5: GESTIÓN CLIENTES (DISEÑO CRM PRO) ---
 elif menu == "Gestión Clientes":
