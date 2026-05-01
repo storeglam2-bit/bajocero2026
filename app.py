@@ -417,108 +417,76 @@ elif menu == "Entrada Producción":
         st.warning("⚠️ No hay productos en el catálogo. Primero registra sabores en 'Catálogo Productos'.")
 
 
-# --- MÓDULO 4: CATÁLOGO PRODUCTOS (DISEÑO DE TARJETAS PREMIUM) ---
+# --- MÓDULO 4: CATÁLOGO PRODUCTOS ---
 elif menu == "Catálogo Productos":
     st.markdown("<h1 style='text-align: center; color: #00f2fe;'>🥤 Catálogo de Sabores</h1>", unsafe_allow_html=True)
     
-    # Carga de datos
+    # 1. Carga y Normalización de Columnas
     df_p = cargar_datos("productos")
 
-    # --- VALIDACIÓN DE COLUMNAS (Para evitar el KeyError) ---
-    columnas_necesarias = ['nombre', 'tipo', 'precio', 'stock', 'promo']
-    for col in columnas_necesarias:
-        if col not in df_p.columns:
-            df_p[col] = "No" if col == 'promo' else 0 if col in ['precio', 'stock'] else "Desconocido"
+    if not df_p.empty:
+        # Renombrar 'Oferta' a 'promo' internamente si existe para que el código no falle
+        if 'Oferta' in df_p.columns:
+            df_p = df_p.rename(columns={'Oferta': 'promo'})
+        
+        # Asegurar que todas las columnas existan para evitar errores visuales
+        columnas_fijas = ['nombre', 'tipo', 'precio', 'stock', 'promo']
+        for c in columnas_fijas:
+            if c not in df_p.columns:
+                df_p[c] = "No" if c == 'promo' else 0
 
-    # --- 1. AGREGAR NUEVO SABOR ---
+    # --- 2. FORMULARIO DE REGISTRO ---
     with st.expander("✨ AÑADIR NUEVA REFERENCIA AL SISTEMA", expanded=False):
         with st.form("nuevo_sabor", clear_on_submit=True):
             c1, c2 = st.columns(2)
             with c1:
-                n = st.text_input("Nombre del Sabor", placeholder="Ej: Maracuyá Explosivo")
-                t = st.selectbox("Tipo de Producto", ["Sin Licor", "Con Licor"])
+                n = st.text_input("Nombre del Sabor")
+                t = st.selectbox("Tipo", ["Sin Licor", "Con Licor"])
             with c2:
-                promo_opt = st.selectbox("¿Es una oferta especial? (Promo)", ["No", "Si"])
-                precio_sug = 30000 if (t == "Sin Licor" and promo_opt == "Si") else 36000 if t == "Sin Licor" else 40000
-                p = st.number_input("Precio de Venta ($)", min_value=0, step=500, value=precio_sug)
+                promo_val = st.selectbox("¿Es Promo?", ["No", "Si"])
+                # Lógica de precio sugerido
+                sug = 30000 if (t == "Sin Licor" and promo_val == "Si") else 36000
+                p = st.number_input("Precio ($)", value=sug)
             
-            if st.form_submit_button("🚀 GUARDAR EN CATÁLOGO", use_container_width=True):
+            if st.form_submit_button("🚀 GUARDAR"):
                 if n:
-                    nombre_nuevo = n.strip().upper()
-                    if not df_p.empty and nombre_nuevo in df_p['nombre'].str.upper().values:
-                        st.error(f"El sabor '{nombre_nuevo}' ya existe.")
-                    else:
-                        nueva = pd.DataFrame([{"nombre": n.strip(), "tipo": t, "precio": p, "stock": 0, "promo": promo_opt}])
-                        df_f = pd.concat([df_p, nueva], ignore_index=True)
-                        try:
-                            conn.update(worksheet="productos", data=df_f)
-                            st.success(f"✅ {n} añadido correctamente.")
-                            st.cache_data.clear() # Limpiar cache para ver el cambio
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error al guardar: {e}")
+                    # Guardamos usando el nombre que espera tu Sheets (Oferta)
+                    nueva_fila = pd.DataFrame([{"nombre": n.strip(), "tipo": t, "precio": p, "stock": 0, "Oferta": promo_val}])
+                    df_final = pd.concat([df_p.rename(columns={'promo': 'Oferta'}), nueva_fila], ignore_index=True)
+                    try:
+                        conn.update(worksheet="productos", data=df_final)
+                        st.cache_data.clear()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
 
     st.markdown("---")
 
-    # --- 2. VISTA DE CATÁLOGO EN TARJETAS ---
+    # --- 3. RENDERIZADO DE TARJETAS ---
     if not df_p.empty:
-        busqueda = st.text_input("🔍 Buscar sabor en el catálogo...", placeholder="Escribe el nombre del sabor")
-        
-        df_show = df_p.copy()
-        if busqueda:
-            df_show = df_show[df_show['nombre'].str.contains(busqueda, case=False, na=False)]
+        busqueda = st.text_input("🔍 Buscar sabor...")
+        df_show = df_p[df_p['nombre'].str.contains(busqueda, case=False, na=False)] if busqueda else df_p
 
-        # Grid de Tarjetas
         cols = st.columns(3)
-        
         for i, (_, fila) in enumerate(df_show.iterrows()):
             with cols[i % 3]:
-                # Lógica de colores y etiquetas
+                # Validamos promo ignorando mayúsculas/minúsculas
                 es_promo = str(fila['promo']).strip().lower() == "si"
-                color_borde = "#f1c40f" if es_promo else "#00f2fe" if fila['tipo'] == "Con Licor" else "#ff4b4b"
-                label_promo = "🔥 ¡PROMO!" if es_promo else str(fila['tipo']).upper()
+                color = "#f1c40f" if es_promo else "#00f2fe"
                 
-                # Renderizado HTML (IMPORTANTE: unsafe_allow_html=True)
                 st.markdown(f"""
-                    <div style="
-                        background-color: #1a1a1a; 
-                        padding: 20px; 
-                        border-radius: 15px; 
-                        border-top: 5px solid {color_borde};
-                        margin-bottom: 20px;
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-                        height: 190px;
-                        position: relative;
-                    ">
-                        <span style="
-                            background-color: {color_borde}; 
-                            color: black; 
-                            padding: 2px 8px; 
-                            border-radius: 5px; 
-                            font-size: 10px; 
-                            font-weight: bold;
-                            position: absolute;
-                            top: 10px;
-                            right: 10px;
-                        ">{label_promo}</span>
-                        
-                        <h3 style="margin-top: 10px; color: white; font-size: 18px; margin-bottom:0;">{fila['nombre']}</h3>
-                        <hr style="border: 0.1px solid #333; margin: 10px 0;">
-                        
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <p style="color: #888; font-size: 11px; margin: 0;">Precio Venta</p>
-                                <p style="color: {color_borde}; font-size: 18px; font-weight: bold; margin: 0;">${int(fila['precio']):,}</p>
-                            </div>
-                            <div style="text-align: right;">
-                                <p style="color: #888; font-size: 11px; margin: 0;">Stock</p>
-                                <p style="color: white; font-size: 18px; margin: 0;">{int(fila['stock'])} <small style="font-size:9px;">und</small></p>
-                            </div>
+                    <div style="background-color:#1a1a1a; padding:20px; border-radius:15px; border-top:5px solid {color}; margin-bottom:20px; height:200px;">
+                        <div style="text-align:right;"><span style="background:{color}; color:black; padding:2px 5px; border-radius:5px; font-size:10px; font-weight:bold;">
+                            {"🔥 PROMO" if es_promo else fila['tipo']}</span>
+                        </div>
+                        <h3 style="color:white; font-size:18px;">{fila['nombre']}</h3>
+                        <hr style="opacity:0.2;">
+                        <div style="display:flex; justify-content:space-between;">
+                            <div><p style="color:#888; font-size:12px; margin:0;">Precio</p><h4 style="color:{color}; margin:0;">${int(fila['precio']):,}</h4></div>
+                            <div style="text-align:right;"><p style="color:#888; font-size:12px; margin:0;">Stock</p><h4 style="color:white; margin:0;">{int(fila['stock'])}</h4></div>
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
-    else:
-        st.info("El catálogo está vacío.")
 
 
 # --- MÓDULO 5: GESTIÓN CLIENTES (DISEÑO CRM PRO) ---
