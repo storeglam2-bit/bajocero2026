@@ -62,28 +62,96 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# --- MÓDULO 1: PANEL PRINCIPAL ---
-if menu == "Panel Principal":
-    st.markdown("<h1 style='text-align: center; color: #00f2fe;'>📊 Resumen de Inventario</h1>", unsafe_allow_html=True)
+# --- MÓDULO 1: PANEL PRINCIPAL (ESTILO SINCRONIZADO) ---
+if menu == "📊 Panel Principal":
+    st.markdown("<h1 style='text-align: center;'>📊 Resumen de Inventario</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
-
+    
     if not df_p.empty:
-        # Normalizar columna oferta/promo
-        if 'oferta' in df_p.columns: df_p = df_p.rename(columns={'oferta': 'promo'})
-        
+        # Asegurar datos numéricos
         df_p['stock'] = pd.to_numeric(df_p['stock'], errors='coerce').fillna(0).astype(int)
         df_p['precio'] = pd.to_numeric(df_p['precio'], errors='coerce').fillna(0).astype(int)
+        
+        # Cálculos de métricas
+        df_sin = df_p[df_p['tipo'].str.contains("Sin", case=False, na=False)]
+        df_con = df_p[df_p['tipo'].str.contains("Con", case=False, na=False)]
+        
+        valor_inventario = int((df_p['stock'] * df_p['precio']).sum())
 
-        # KPIs
-        c1, c2, c3, c4 = st.columns(4)
-        total_inv = (df_p['stock'] * df_p['precio']).sum()
-        c1.metric("Stock Total", f"{df_p['stock'].sum()} und")
-        c2.metric("Valor Inventario", f"${total_inv:,.0f}")
-        c3.metric("Sabores", len(df_p))
-        c4.metric("Alertas", len(df_p[df_p['stock'] <= 5]))
+        # --- MÉTRICAS SUPERIORES ---
+        m1, m2, m3 = st.columns(3)
+        m1.metric("💰 Valor Total", f"$ {valor_inventario:,}".replace(",", "."))
+        m2.metric("🥤 Total Sin Licor", f"{df_sin['stock'].sum()} und")
+        m3.metric("🍸 Total Con Licor", f"{df_con['stock'].sum()} und")
+        
+        # --- SECCIÓN DE DISPONIBILIDAD CRÍTICA ---
+        df_alerta = df_p[df_p['stock'] <= 4].sort_values('stock')
+        
+        if not df_alerta.empty:
+            st.markdown("---")
+            # Título central con color dinámico (Cian para resaltar)
+            st.markdown("""
+                <div style='text-align: center; margin-bottom: 20px;'>
+                    <h3 style='color: #00f2fe; font-size: 26px; font-weight: bold; margin-bottom: 0;'>🧊 DISPONIBILIDAD CRÍTICA</h3>
+                    <p style='color: #666; font-size: 14px;'>Reponer estos sabores de inmediato</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            cols_alerta = st.columns(4)
+            
+            for i, (_, fila) in enumerate(df_alerta.iterrows()):
+                # Definición de colores según el stock para sincronizar todo el cuadro
+                if fila['stock'] == 0:
+                    color_tema = "#ff4b4b" # Rojo
+                    icon = "🚫"
+                elif fila['stock'] <= 2:
+                    color_tema = "#ffa500" # Naranja
+                    icon = "⚠️"
+                else:
+                    color_tema = "#00f2fe" # Cian
+                    icon = "📉"
 
-        st.subheader("📋 Inventario Detallado")
-        st.dataframe(df_p[['nombre', 'tipo', 'stock', 'precio']], use_container_width=True, hide_index=True)
+                badge_html = f"""
+                <div style="
+                    background-color: #1a1a1a; 
+                    padding: 20px; 
+                    border-radius: 15px; 
+                    border: 2px solid {color_tema};
+                    text-align: center;
+                    margin-bottom: 15px;
+                    box-shadow: 0px 4px 20px rgba(0,0,0,0.4);">
+                    <div style="font-size: 35px; margin-bottom: 10px;">{icon}</div>
+                    <p style="margin: 0; font-size: 18px; font-weight: bold; color: {color_tema};">{fila['nombre']}</p>
+                    <p style="margin: 5px 0; font-size: 24px; color: white; font-weight: bold;">{fila['stock']} <span style='font-size: 14px; opacity:0.8;'>UND</span></p>
+                    <div style="
+                        display: inline-block;
+                        padding: 2px 10px;
+                        border-radius: 5px;
+                        background-color: {color_tema}33; 
+                        color: {color_tema};
+                        font-size: 10px;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                        border: 1px solid {color_tema};">
+                        {fila['tipo']}
+                    </div>
+                </div>
+                """
+                with cols_alerta[i % 4]:
+                    st.markdown(badge_html, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        # --- TABLAS DETALLADAS ---
+        c1, c2 = st.columns(2)
+        with c1:
+            st.subheader("🥤 Detalle Sin Licor")
+            st.dataframe(df_sin[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
+        with c2:
+            st.subheader("🍸 Detalle Con Licor")
+            st.dataframe(df_con[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
+    else:
+        st.info("No hay productos registrados.")
 
 ## --- MÓDULO 2: REGISTRAR VENTA (INTERFAZ POS PREMIUM) ---
 elif menu == "Registrar Venta":
