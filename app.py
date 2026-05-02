@@ -62,96 +62,104 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# --- MÓDULO 1: PANEL PRINCIPAL (ESTILO SINCRONIZADO) ---
+# --- MÓDULO 1: PANEL PRINCIPAL (VERSION FINAL ORDENADA) ---
 if menu == "Panel Principal":
-    st.markdown("<h1 style='text-align: center;'>📊 Resumen de Inventario</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #00f2fe;'>📊 Resumen de Inventario</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
     
     if not df_p.empty:
-        # Asegurar datos numéricos
+        # 1. PREPARACIÓN DE DATOS Y LÓGICA INVISIBLE
+        if 'promo' not in df_p.columns:
+            df_p['promo'] = "No"
+            
         df_p['stock'] = pd.to_numeric(df_p['stock'], errors='coerce').fillna(0).astype(int)
         df_p['precio'] = pd.to_numeric(df_p['precio'], errors='coerce').fillna(0).astype(int)
         
-        # Cálculos de métricas
-        df_sin = df_p[df_p['tipo'].str.contains("Sin", case=False, na=False)]
-        df_con = df_p[df_p['tipo'].str.contains("Con", case=False, na=False)]
-        
-        valor_inventario = int((df_p['stock'] * df_p['precio']).sum())
+        # Función para determinar el precio real basado en si es promo
+        def obtener_precio_final(row):
+            if str(row['tipo']).strip() == "Sin Licor" and str(row['promo']).strip() == "Si":
+                return 30000
+            return row['precio']
 
-        # --- MÉTRICAS SUPERIORES ---
-        m1, m2, m3 = st.columns(3)
-        m1.metric("💰 Valor Total", f"$ {valor_inventario:,}".replace(",", "."))
-        m2.metric("🥤 Total Sin Licor", f"{df_sin['stock'].sum()} und")
-        m3.metric("🍸 Total Con Licor", f"{df_con['stock'].sum()} und")
+        df_p['precio_display'] = df_p.apply(obtener_precio_final, axis=1)
+        df_p['valor_total_fila'] = df_p['stock'] * df_p['precio_display']
         
-        # --- SECCIÓN DE DISPONIBILIDAD CRÍTICA ---
-        df_alerta = df_p[df_p['stock'] <= 4].sort_values('stock')
+        # SEPARACIÓN DE GRUPOS
+        df_sin_reg = df_p[(df_p['tipo'].str.contains("Sin", case=False)) & (df_p['promo'] != "Si")]
+        df_sin_pro = df_p[(df_p['tipo'].str.contains("Sin", case=False)) & (df_p['promo'] == "Si")]
+        df_con_lic = df_p[df_p['tipo'].str.contains("Con", case=False)]
         
-        if not df_alerta.empty:
-            st.markdown("---")
-            # Título central con color dinámico (Cian para resaltar)
-            st.markdown("""
-                <div style='text-align: center; margin-bottom: 20px;'>
-                    <h3 style='color: #00f2fe; font-size: 26px; font-weight: bold; margin-bottom: 0;'>🧊 DISPONIBILIDAD CRÍTICA</h3>
-                    <p style='color: #666; font-size: 14px;'>Reponer estos sabores de inmediato</p>
-                </div>
-            """, unsafe_allow_html=True)
-            
-            cols_alerta = st.columns(4)
-            
-            for i, (_, fila) in enumerate(df_alerta.iterrows()):
-                # Definición de colores según el stock para sincronizar todo el cuadro
-                if fila['stock'] == 0:
-                    color_tema = "#ff4b4b" # Rojo
-                    icon = "🚫"
-                elif fila['stock'] <= 2:
-                    color_tema = "#ffa500" # Naranja
-                    icon = "⚠️"
-                else:
-                    color_tema = "#00f2fe" # Cian
-                    icon = "📉"
-
-                badge_html = f"""
-                <div style="
-                    background-color: #1a1a1a; 
-                    padding: 20px; 
-                    border-radius: 15px; 
-                    border: 2px solid {color_tema};
-                    text-align: center;
-                    margin-bottom: 15px;
-                    box-shadow: 0px 4px 20px rgba(0,0,0,0.4);">
-                    <div style="font-size: 35px; margin-bottom: 10px;">{icon}</div>
-                    <p style="margin: 0; font-size: 18px; font-weight: bold; color: {color_tema};">{fila['nombre']}</p>
-                    <p style="margin: 5px 0; font-size: 24px; color: white; font-weight: bold;">{fila['stock']} <span style='font-size: 14px; opacity:0.8;'>UND</span></p>
-                    <div style="
-                        display: inline-block;
-                        padding: 2px 10px;
-                        border-radius: 5px;
-                        background-color: {color_tema}33; 
-                        color: {color_tema};
-                        font-size: 10px;
-                        font-weight: bold;
-                        text-transform: uppercase;
-                        letter-spacing: 1px;
-                        border: 1px solid {color_tema};">
-                        {fila['tipo']}
-                    </div>
-                </div>
-                """
-                with cols_alerta[i % 4]:
-                    st.markdown(badge_html, unsafe_allow_html=True)
+        # 2. TARJETAS DE INDICADORES (KPIs)
+        c1, c2, c3, c4 = st.columns(4)
         
-        st.markdown("---")
-        # --- TABLAS DETALLADAS ---
-        c1, c2 = st.columns(2)
         with c1:
-            st.subheader("🥤 Detalle Sin Licor")
-            st.dataframe(df_sin[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
+            st.markdown(f'''<div style="background-color:#1a1a1a;padding:12px;border-radius:10px;border-left:5px solid #ff4b4b;text-align:center;">
+                <p style="margin:0;font-size:11px;color:#888;">🥤 SIN LICOR (REG)</p>
+                <h3 style="margin:0;color:white;font-size:20px;">{df_sin_reg["stock"].sum()} <span style="font-size:10px;">UND</span></h3>
+                <p style="margin:0;color:#ff4b4b;font-size:14px;font-weight:bold;">$ {int(df_sin_reg["valor_total_fila"].sum()):,}</p>
+            </div>''', unsafe_allow_html=True)
+
         with c2:
-            st.subheader("🍸 Detalle Con Licor")
-            st.dataframe(df_con[['nombre', 'stock', 'precio']], use_container_width=True, hide_index=True)
+            color_promo = "#f1c40f" if not df_sin_pro.empty else "#333"
+            st.markdown(f'''<div style="background-color:#1a1a1a;padding:12px;border-radius:10px;border-left:5px solid {color_promo};text-align:center;">
+                <p style="margin:0;font-size:11px;color:#888;">🔥 SIN LICOR (PROMO)</p>
+                <h3 style="margin:0;color:white;font-size:20px;">{df_sin_pro["stock"].sum()} <span style="font-size:10px;">UND</span></h3>
+                <p style="margin:0;color:{color_promo};font-size:14px;font-weight:bold;">$ {int(df_sin_pro["valor_total_fila"].sum()):,}</p>
+            </div>''', unsafe_allow_html=True)
+
+        with c3:
+            st.markdown(f'''<div style="background-color:#1a1a1a;padding:12px;border-radius:10px;border-left:5px solid #00f2fe;text-align:center;">
+                <p style="margin:0;font-size:11px;color:#888;">🍸 CON LICOR</p>
+                <h3 style="margin:0;color:white;font-size:20px;">{df_con_lic["stock"].sum()} <span style="font-size:10px;">UND</span></h3>
+                <p style="margin:0;color:#00f2fe;font-size:14px;font-weight:bold;">$ {int(df_con_lic["valor_total_fila"].sum()):,}</p>
+            </div>''', unsafe_allow_html=True)
+
+        with c4:
+            total_valor = df_p['valor_total_fila'].sum()
+            st.markdown(f'''<div style="background-color:#1a1a1a;padding:12px;border-radius:10px;border-left:5px solid #2ecc71;text-align:center;">
+                <p style="margin:0;font-size:11px;color:#888;">💰 VALOR TOTAL</p>
+                <h3 style="margin:0;color:white;font-size:20px;">{df_p["stock"].sum()} <span style="font-size:10px;">UND</span></h3>
+                <p style="margin:0;color:#2ecc71;font-size:14px;font-weight:bold;">$ {int(total_valor):,}</p>
+            </div>''', unsafe_allow_html=True)
+
+        # 3. ALERTAS DE REPOSICIÓN
+        df_alerta = df_p[df_p['stock'] <= 4].sort_values('stock')
+        if not df_alerta.empty:
+            st.markdown("<br><p style='text-align:center; color:#888; font-size:13px;'>⚠️ NECESITAN REPOSICIÓN</p>", unsafe_allow_html=True)
+            cols = st.columns(5)
+            for i, (_, fila) in enumerate(df_alerta.iterrows()):
+                color_a = "#ff4b4b" if fila['stock'] == 0 else ("#ffa500" if fila['stock'] <= 2 else "#00f2fe")
+                with cols[i % 5]:
+                    st.markdown(f'''<div style="background-color:#0e1117;padding:8px;border-radius:8px;border:1px solid {color_a};text-align:center;margin-bottom:5px;">
+                        <p style="margin:0;font-size:11px;font-weight:bold;color:white;white-space:nowrap;overflow:hidden;">{fila["nombre"]}</p>
+                        <p style="margin:0;font-size:15px;color:{color_a};font-weight:bold;">{fila["stock"]} <span style="font-size:10px;">UND</span></p>
+                    </div>''', unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        # 4. TABLAS DETALLADAS POR CATEGORÍA
+        # Fila 1: Regulares vs Con Licor
+        col_left, col_right = st.columns(2)
+        
+        with col_left:
+            st.subheader("🥤 Sin Licor (Regulares)")
+            st.dataframe(df_sin_reg[['nombre', 'stock', 'precio_display']].rename(columns={'precio_display': 'precio'}), 
+                         use_container_width=True, hide_index=True)
+
+        with col_right:
+            st.subheader("🍸 Con Licor")
+            st.dataframe(df_con_lic[['nombre', 'stock', 'precio']], 
+                         use_container_width=True, hide_index=True)
+            
+        # Fila 2: Solo si existen Promociones
+        if not df_sin_pro.empty:
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("### 🔥 Promociones Activas (Sin Licor)")
+            st.dataframe(df_sin_pro[['nombre', 'stock', 'precio_display']].rename(columns={'precio_display': 'precio'}), 
+                         use_container_width=True, hide_index=True)
+
     else:
-        st.info("No hay productos registrados.")
+        st.info("No hay productos registrados en la base de datos.")
 
 ## --- MÓDULO 2: REGISTRAR VENTA (INTERFAZ POS PREMIUM) ---
 elif menu == "Registrar Venta":
