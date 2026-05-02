@@ -63,7 +63,7 @@ with st.sidebar:
         st.rerun()
 
 # --- MÓDULO 1: PANEL PRINCIPAL (ESTILO SINCRONIZADO) ---
-if menu == "📊 Panel Principal":
+if menu == "Panel Principal":
     st.markdown("<h1 style='text-align: center;'>📊 Resumen de Inventario</h1>", unsafe_allow_html=True)
     df_p = cargar_datos("productos")
     
