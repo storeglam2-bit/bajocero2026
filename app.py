@@ -122,20 +122,26 @@ if menu == "Panel Principal":
                 <p style="margin:0;color:#2ecc71;font-size:14px;font-weight:bold;">$ {int(total_valor):,}</p>
             </div>''', unsafe_allow_html=True)
 
-        # 3. ALERTAS DE REPOSICIÓN
+# 3. ALERTAS DE REPOSICIÓN
         df_alerta = df_p[df_p['stock'] <= 4].sort_values('stock')
         if not df_alerta.empty:
             st.markdown("<br><p style='text-align:center; color:#888; font-size:13px;'>⚠️ NECESITAN REPOSICIÓN</p>", unsafe_allow_html=True)
             cols = st.columns(5)
             for i, (_, fila) in enumerate(df_alerta.iterrows()):
+                # Lógica de colores según stock
                 color_a = "#ff4b4b" if fila['stock'] == 0 else ("#ffa500" if fila['stock'] <= 2 else "#00f2fe")
+                
+                # Formatear el texto del tipo (CON LICOR / SIN LICOR)
+                tipo_texto = str(fila['tipo']).upper()
+                
                 with cols[i % 5]:
-                    st.markdown(f'''<div style="background-color:#0e1117;padding:8px;border-radius:8px;border:1px solid {color_a};text-align:center;margin-bottom:5px;">
-                        <p style="margin:0;font-size:11px;font-weight:bold;color:white;white-space:nowrap;overflow:hidden;">{fila["nombre"]}</p>
-                        <p style="margin:0;font-size:15px;color:{color_a};font-weight:bold;">{fila["stock"]} <span style="font-size:10px;">UND</span></p>
-                    </div>''', unsafe_allow_html=True)
-
-        st.markdown("---")
+                    st.markdown(f'''
+                        <div style="background-color:#0e1117;padding:8px;border-radius:8px;border:1px solid {color_a};text-align:center;margin-bottom:10px;min-height:80px;">
+                            <p style="margin:0;font-size:9px;color:{color_a};font-weight:bold;letter-spacing:1px;">{tipo_texto}</p>
+                            <p style="margin:2px 0;font-size:12px;font-weight:bold;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{fila["nombre"]}</p>
+                            <p style="margin:0;font-size:16px;color:{color_a};font-weight:bold;">{fila["stock"]} <span style="font-size:10px;">UND</span></p>
+                        </div>
+                    ''', unsafe_allow_html=True)
 
         # 4. TABLAS DETALLADAS POR CATEGORÍA
         # Fila 1: Regulares vs Con Licor
