@@ -243,10 +243,43 @@ elif selected == "Registrar Venta":
                 st.rerun()
         with col_v2:
             if st.button("🚀 CONFIRMAR REGISTRO DE VENTA", type="primary", use_container_width=True):
-                # Lógica de guardado pendiente
-                st.success("🎉 ¡Venta guardada en la base de datos!")
-                st.session_state.carrito = []
-                st.balloons()
+                try:
+                    # 1. PREPARAR LA ACTUALIZACIÓN
+                    # Creamos una copia del dataframe de productos para trabajar
+                    df_actualizado = df_productos.copy()
+                    
+                    # Recorremos cada ítem del carrito para restar del inventario
+                    for item in st.session_state.carrito:
+                        nombre_vta = item["Producto"]
+                        tipo_vta = item["Tipo"]
+                        cant_vta = item["Cant"]
+                        
+                        # Localizamos la fila exacta (Nombre + Tipo)
+                        idx = df_actualizado[(df_actualizado['nombre'] == nombre_vta) & 
+                                            (df_actualizado['tipo'] == tipo_vta)].index
+                        
+                        if not idx.empty:
+                            # Restamos la cantidad
+                            df_actualizado.loc[idx, 'stock'] -= cant_vta
+
+                    # 2. ENVIAR A GOOGLE SHEETS
+                    # Aquí usamos la función de tu conexión para sobreescribir la hoja de productos
+                    # Nota: Asegúrate de que 'conn' y el nombre de la hoja sean correctos
+                    conn.update(worksheet="productos", data=df_actualizado)
+                    
+                    # 3. (OPCIONAL) REGISTRAR EN EL HISTORIAL DE VENTAS
+                    # Si tienes una pestaña llamada 'ventas', aquí añadirías las filas del carrito
+                    # conn.append_rows(worksheet="ventas", data=st.session_state.carrito)
+
+                    st.success("🎉 ¡Venta registrada y stock actualizado con éxito!")
+                    st.balloons()
+                    
+                    # Limpiamos carrito y forzamos reinicio para ver el nuevo stock
+                    st.session_state.carrito = []
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"Hubo un error al guardar: {e}")
     else:
         st.info("💡 El carrito está esperando tu primera selección.")
 
