@@ -32,6 +32,15 @@ with st.sidebar:
         }
     )
 
+# --- BOTÓN DE ACTUALIZACIÓN EN EL SIDEBAR ---
+with st.sidebar:
+    st.divider()
+    if st.button("🔄 Actualizar Datos", use_container_width=True):
+        # Limpia el caché de la conexión a GSheets
+        st.cache_data.clear()
+        st.toast("Datos actualizados desde Google Sheets")
+        st.rerun()
+
 # --- 1. PANEL PRINCIPAL ---
 if selected == "Panel Principal":
     st.header("📊 Resumen de Inventario")
