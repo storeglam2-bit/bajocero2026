@@ -3,3 +3,5 @@ pandas
 streamlit-option-menu
 gspread
 st-gsheets-connection
+plotly
+gsheetsdb
