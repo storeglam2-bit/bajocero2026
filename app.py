@@ -174,12 +174,12 @@ elif selected == "Registrar Venta":
             cliente_sel = st.selectbox("👤 Cliente", lista_cli)
         
         with c2:
-            # 1. Filtro estricto de stock numérico
+            # 1. Limpieza y Filtro Estricto: Eliminamos lo que tenga 0 o menos stock
             df_productos['stock'] = pd.to_numeric(df_productos['stock'], errors='coerce').fillna(0)
             df_vta = df_productos[df_productos['stock'] > 0].copy()
 
             if not df_vta.empty:
-                # Quitamos el stock del nombre (Solo Nombre y Tipo)
+                # Solo Nombre y Tipo en la lista (Stock oculto aquí para limpieza)
                 df_vta['display'] = df_vta['nombre'] + " (" + df_vta['tipo'] + ")"
                 
                 opcion_prod = st.selectbox(
@@ -189,12 +189,23 @@ elif selected == "Registrar Venta":
                 )
                 
                 datos_p = df_vta[df_vta['display'] == opcion_prod].iloc[0]
-                nombre_real = datos_p['nombre']
                 tipo_p = datos_p['tipo']
-                precio_b = int(float(datos_p['precio']))
                 stock_r = int(datos_p['stock'])
-                
-                # 2. CAJITA INFORMATIVA MEJOR DISEÑADA (Reemplaza el recuadro rojo)
+                precio_b = int(float(datos_p['precio']))
+                nombre_real = datos_p['nombre']
+
+                # 2. Lógica de Estados y Colores (Semáforo)
+                if stock_r > 5:
+                    color_bg = "#059669"  # Verde (Disponible)
+                    texto_estado = "DISPONIBLE"
+                elif stock_r == 5:
+                    color_bg = "#d97706"  # Naranja (Agotándose)
+                    texto_estado = "AGOTÁNDOSE"
+                else:  # Entre 1 y 4 unidades (Crítico)
+                    color_bg = "#991b1b"  # Rojo Oscuro (Crítico)
+                    texto_estado = "ESTADO CRÍTICO"
+
+                # 3. Diseño de la Tarjeta Informativa
                 st.markdown(f"""
                     <div style="
                         background-color: #1e293b; 
@@ -205,20 +216,23 @@ elif selected == "Registrar Venta":
                     ">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <span style="color: #94a3b8; font-size: 0.85rem; font-weight: bold;">DETALLES</span>
-                            <span style="background-color: #059669; color: white; padding: 2px 8px; border-radius: 5px; font-size: 0.75rem;">DISPONIBLE</span>
+                            <span style="background-color: {color_bg}; color: white; padding: 2px 10px; border-radius: 5px; font-size: 0.7rem; font-weight: bold;">
+                                {texto_estado}
+                            </span>
                         </div>
                         <div style="display: flex; justify-content: space-between; margin-top: 8px;">
                             <div style="color: #e2e8f0; font-size: 0.95rem;">
                                 🏷️ <b>Tipo:</b> {tipo_p}
                             </div>
-                            <div style="color: #10b981; font-size: 1.1rem; font-weight: bold;">
-                                {stock_r} <small style="font-size: 0.7rem;">uds</small>
+                            <div style="color: #f8fafc; font-size: 1.1rem; font-weight: bold;">
+                                {stock_r} <small style="font-size: 0.7rem; color: #94a3b8;">uds</small>
                             </div>
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
             else:
-                st.error("⚠️ NO HAY STOCK DISPONIBLE")
+                # 4. Caso 0 Stock: Alerta Roja y exclusión
+                st.error("❌ SIN STOCK: No hay productos con existencias para vender.")
                 nombre_real, precio_b, stock_r, tipo_p = None, 0, 0, ""
 
         st.divider()
