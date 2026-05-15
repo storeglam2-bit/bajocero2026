@@ -508,161 +508,108 @@ elif selected == "Ingresar Stock":
 
 # --- 5. HISTORIAL DE VENTAS PREMIUM ---
 
-# --- ESTILOS CSS PARA DISEÑO PREMIUM ---
+# --- 1. CSS PARA TARJETAS CON EFECTO NEÓN Y CRISTAL ---
 st.markdown("""
     <style>
-    /* Tarjetas de Métricas (KPIs) */
-    .kpi-card {
-        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        padding: 25px;
+    /* Contenedor de KPI con degradado animado en el borde */
+    .premium-kpi {
+        background: rgba(30, 41, 59, 0.7);
         border-radius: 20px;
-        border: 1px solid #334155;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+        padding: 25px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
         text-align: center;
-        transition: transform 0.3s ease;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
     }
-    .kpi-card:hover {
-        transform: translateY(-5px);
-        border-color: #38bdf8;
-    }
-    .kpi-icon {
-        font-size: 2rem;
-        margin-bottom: 10px;
-    }
-    .kpi-value {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #f8fafc;
-        margin: 5px 0;
-    }
-    .kpi-label {
-        color: #94a3b8;
-        font-size: 0.9rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
-    /* Tarjetas del TOP 3 */
-    .top-card {
-        background: #1e293b;
+    .kpi-title { color: #94a3b8; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
+    .kpi-value { color: #ffffff; font-size: 2.2rem; font-weight: 800; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+    
+    /* Ranking de Clientes Estilo Podio */
+    .rank-box {
+        background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%);
         border-radius: 15px;
-        padding: 15px;
-        margin-bottom: 10px;
-        border: 1px solid #334155;
+        padding: 20px;
+        margin-bottom: 15px;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        border: 1px solid #334155;
     }
-    .rank-1 { border-left: 5px solid #fbbf24; background: linear-gradient(90deg, rgba(251,191,36,0.1) 0%, #1e293b 100%); }
-    .rank-2 { border-left: 5px solid #94a3b8; background: linear-gradient(90deg, rgba(148,163,184,0.1) 0%, #1e293b 100%); }
-    .rank-3 { border-left: 5px solid #cd7f32; background: linear-gradient(90deg, rgba(205,127,50,0.1) 0%, #1e293b 100%); }
+    .gold { border-left: 6px solid #fbbf24; box-shadow: -5px 0 15px rgba(251, 191, 36, 0.2); }
+    .silver { border-left: 6px solid #94a3b8; }
+    .bronze { border-left: 6px solid #cd7f32; }
     
-    .medal { font-size: 1.5rem; margin-right: 15px; }
+    .client-name { color: white; font-weight: 600; font-size: 1.1rem; }
+    .client-total { color: #38bdf8; font-weight: 800; font-size: 1.3rem; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- INICIO DEL MÓDULO ---
 if selected == "Historial de Ventas":
-    st.markdown("<h1 style='text-align: center; color: #00d4ff; font-weight: 800;'>💎 DASHBOARD ESTRATÉGICO</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #00d4ff;'>💎 DASHBOARD ESTRATÉGICO</h1>", unsafe_allow_html=True)
 
     try:
         df_ventas = conn.read(worksheet="ventas")
-        
         if not df_ventas.empty:
-            # Procesamiento de datos
             df_ventas['total'] = pd.to_numeric(df_ventas['total'], errors='coerce').fillna(0)
-            df_ventas['cantidad'] = pd.to_numeric(df_ventas['cantidad'], errors='coerce').fillna(0)
             df_ventas['fecha'] = pd.to_datetime(df_ventas['fecha'])
 
-            # --- 1. FILA DE CAJITAS PREMIUM (KPIs) ---
+            # --- FILA 1: CAJITAS PREMIUM ---
             c1, c2, c3, c4 = st.columns(4)
-            
-            with c1:
-                st.markdown(f"""<div class="kpi-card">
-                    <div class="kpi-icon">💰</div>
-                    <div class="kpi-label">Ingresos Totales</div>
-                    <div class="kpi-value">${df_ventas['total'].sum():,.0f}</div>
-                </div>""".replace(",", "."), unsafe_allow_html=True)
-            
-            with c2:
-                st.markdown(f"""<div class="kpi-card">
-                    <div class="kpi-icon">📦</div>
-                    <div class="kpi-label">Uds Vendidas</div>
-                    <div class="kpi-value">{int(df_ventas['cantidad'].sum())}</div>
-                </div>""", unsafe_allow_html=True)
-            
-            with c3:
-                top_cliente = df_ventas.groupby('cliente')['total'].sum().idxmax()
-                st.markdown(f"""<div class="kpi-card">
-                    <div class="kpi-icon">🏆</div>
-                    <div class="kpi-label">Cliente Estrella</div>
-                    <div class="kpi-value" style="font-size: 1.1rem;">{top_cliente[:18]}</div>
-                </div>""", unsafe_allow_html=True)
-            
-            with c4:
-                promedio = df_ventas['total'].mean()
-                st.markdown(f"""<div class="kpi-card">
-                    <div class="kpi-icon">📈</div>
-                    <div class="kpi-label">Ticket Promedio</div>
-                    <div class="kpi-value">${promedio:,.0f}</div>
-                </div>""".replace(",", "."), unsafe_allow_html=True)
+            metrics = [
+                ("INGRESOS TOTALES", f"${df_ventas['total'].sum():,.0f}", "💰"),
+                ("UNIDADES", f"{int(pd.to_numeric(df_ventas['cantidad']).sum())}", "📦"),
+                ("TOP CLIENTE", df_ventas.groupby('cliente')['total'].sum().idxmax()[:12], "🏆"),
+                ("TICKET PROM.", f"${df_ventas['total'].mean():,.0f}", "📊")
+            ]
 
-            st.write("##")
-
-            # --- 2. SECCIÓN INTERMEDIA: TOP 3 Y GRÁFICO ---
-            col_izq, col_der = st.columns([1, 1.2])
-
-            with col_izq:
-                st.markdown("### 🥇 Ranking de Clientes")
-                top_3 = df_ventas.groupby('cliente')['total'].sum().sort_values(ascending=False).head(3).reset_index()
-                
-                medallas = ["🥇", "🥈", "🥉"]
-                clases = ["rank-1", "rank-2", "rank-3"]
-                
-                for i, row in top_3.iterrows():
+            for i, col in enumerate([c1, c2, c3, c4]):
+                with col:
                     st.markdown(f"""
-                        <div class="top-card {clases[i]}">
-                            <div style="display: flex; align-items: center;">
-                                <span class="medal">{medallas[i]}</span>
-                                <div>
-                                    <b style="color: white; font-size: 1rem;">{row['cliente']}</b><br>
-                                    <small style="color: #94a3b8;">Cliente Frecuente</small>
-                                </div>
-                            </div>
-                            <div style="text-align: right;">
-                                <b style="color: #38bdf8; font-size: 1.1rem;">${row['total']:,.0f}</b>
-                            </div>
+                        <div class="premium-kpi">
+                            <div style="font-size: 1.5rem;">{metrics[i][2]}</div>
+                            <div class="kpi-title">{metrics[i][0]}</div>
+                            <div class="kpi-value">{metrics[i][1]}</div>
                         </div>
                     """.replace(",", "."), unsafe_allow_html=True)
 
-            with col_der:
-                st.markdown("### 📅 Ventas Mensuales")
+            st.write("##")
+
+            # --- FILA 2: RANKING Y GRÁFICO (CORREGIDO) ---
+            col_rank, col_chart = st.columns([1, 1])
+
+            with col_rank:
+                st.markdown("### 🥇 Ranking de Clientes")
+                top_3 = df_ventas.groupby('cliente')['total'].sum().sort_values(ascending=False).head(3).reset_index()
+                styles = ["gold", "silver", "bronze"]
+                icons = ["🥇", "🥈", "🥉"]
+
+                for i, row in top_3.iterrows():
+                    st.markdown(f"""
+                        <div class="rank-box {styles[i]}">
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <span style="font-size: 1.8rem;">{icons[i]}</span>
+                                <div>
+                                    <div class="client-name">{row['cliente']}</div>
+                                    <div style="color: #64748b; font-size: 0.8rem;">CLIENTE ELITE</div>
+                                </div>
+                            </div>
+                            <div class="client-total">${row['total']:,.0f}</div>
+                        </div>
+                    """.replace(",", "."), unsafe_allow_html=True)
+
+            with col_chart:
+                st.markdown("### 📅 Distribución Mensual")
                 df_ventas['mes'] = df_ventas['fecha'].dt.strftime('%b')
-                ventas_mes = df_ventas.groupby('mes')['total'].sum().reset_index()
-                
-                # Gráfico circular con estilo moderno
-                fig = px.pie(
-                    ventas_mes, values='total', names='mes',
-                    hole=0.6,
-                    color_discrete_sequence=px.colors.sequential.Skyazul_r
-                )
+                # CORRECCIÓN DE COLOR: Usamos 'Plotly3' o 'Ice' que son estables
+                fig = px.pie(df_ventas, values='total', names='mes', hole=0.7, 
+                             color_discrete_sequence=px.colors.sequential.RdBu)
                 fig.update_layout(
                     margin=dict(t=0, b=0, l=0, r=0),
                     paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    showlegend=True,
-                    legend=dict(font=dict(color="white"))
+                    font_color="white",
+                    showlegend=True
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-            # --- 3. TABLA DE OPERACIONES ---
-            st.divider()
-            st.markdown("#### 📜 Historial de Operaciones Detallado")
-            st.dataframe(
-                df_ventas[['fecha', 'cliente', 'producto', 'cantidad', 'total', 'metodo']], 
-                use_container_width=True, 
-                hide_index=True
-            )
-
     except Exception as e:
-        st.error(f"Error al cargar el dashboard: {e}")
+        st.error(f"Error visual: {e}")
