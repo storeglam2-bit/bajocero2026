@@ -600,7 +600,12 @@ if selected == "Historial de Ventas":
         df_ventas = conn.read(worksheet="ventas")
         if not df_ventas.empty:
             df_ventas['total'] = pd.to_numeric(df_ventas['total'], errors='coerce').fillna(0)
-            df_ventas['fecha'] = pd.to_datetime(df_ventas['fecha'])
+            df_ventas['fecha'] = pd.to_datetime(df_ventas['fecha'], errors='coerce')
+            df_ventas = df_ventas.dropna(subset=['fecha'])
+            df_ventas['mes'] = df_ventas['fecha'].dt.strftime('%B')
+
+            df_ventas['total'] = pd.to_numeric(df_ventas['total'], errors='coerce').fillna(0)
+            df_ventas['cantidad'] = pd.to_numeric(df_ventas['cantidad'], errors='coerce').fillna(0)
 
             # --- FILA 1: CAJITAS PREMIUM ---
             c1, c2, c3, c4 = st.columns(4)
@@ -660,43 +665,43 @@ if selected == "Historial de Ventas":
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-    except Exception as e:
-        st.error(f"Error visual: {e}")
-
 # --- 3. TABLA DE VENTAS CON DISEÑO PREMIUM ---
-    st.write("##")
-    st.markdown("""
-                <div style="background: linear-gradient(90deg, #0f172a 0%, #1e293b 100%); padding: 15px; border-radius: 15px 15px 0 0; border: 1px solid #334155; border-bottom: none;">
-                    <span style="color: #38bdf8; font-size: 1.2rem; font-weight: 700;">📄 Registro Cronológico de Ventas</span>
-                </div>
-            """, unsafe_allow_html=True)
-
-            # Estilizamos el dataframe usando column_config para que se vea Pro
-    st.dataframe(
-                df_ventas[['fecha', 'cliente', 'producto', 'cantidad', 'total', 'metodo']].sort_values(by='fecha', ascending=False),
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "fecha": st.column_config.DatetimeColumn("📅 Fecha y Hora", format="DD/MM/YY HH:mm"),
-                    "cliente": st.column_config.TextColumn("👤 Cliente"),
-                    "producto": st.column_config.TextColumn("📦 Producto"),
-                    "cantidad": st.column_config.NumberColumn("Cant.", format="%d uds"),
-                    "total": st.column_config.NumberColumn("Monto Total", format="$%d"),
-                    "metodo": st.column_config.SelectboxColumn(
-                        "💳 Método",
-                        options=["Nequi/Daviplata", "Transferencia", "Efectivo"],
-                    )
-                }
-            )
-
-            # --- BOTÓN DE DESCARGA ESTILIZADO ---
-    col_down, col_empty = st.columns([1, 3])
-    with col_down:
-                csv = df_ventas.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="📥 Exportar Reporte Mensual",
-                    data=csv,
-                    file_name=f"Ventas_BajoCero_{df_ventas['mes'].iloc[0]}.csv",
-                    mime="text/csv",
-                    use_container_width=True
+        st.write("##")
+        st.markdown("### 📜 Registro Cronológico de Ventas")
+            
+            # Contenedor visual para la tabla
+        with st.container():
+                # Configuramos la tabla con diseño Pro
+                st.dataframe(
+                    df_ventas[['fecha', 'cliente', 'producto', 'cantidad', 'total', 'metodo']].sort_values(by='fecha', ascending=False),
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "fecha": st.column_config.DatetimeColumn("📅 Fecha y Hora", format="DD/MM/YY HH:mm"),
+                        "cliente": st.column_config.TextColumn("👤 Cliente"),
+                        "producto": st.column_config.TextColumn("📦 Producto"),
+                        "cantidad": st.column_config.NumberColumn("Cant.", format="%d uds"),
+                        "total": st.column_config.NumberColumn("Monto Total", format="$%d"),
+                        "metodo": st.column_config.TextColumn("💳 Método")
+                    }
                 )
+
+        # --- BOTÓN DE DESCARGA PREMIUM ---
+        st.write("##")
+        csv = df_ventas.to_csv(index=False).encode('utf-8')
+                    
+        # Nombre dinámico basado en el mes más reciente
+        mes_actual = df_ventas['mes'].iloc[0] if not df_ventas.empty else "Historico"
+                    
+        col_btn, _ = st.columns([1, 2])
+        with col_btn:
+            st.download_button(
+                            label=f"📥 Descargar Reporte {mes_actual}",
+                            data=csv,
+                            file_name=f"Ventas_BajoCero_{mes_actual}.csv",
+                            mime="text/csv",
+                            use_container_width=True
+                        )
+    except Exception as e:
+        st.error(f"⚠️ Error al procesar el historial: {e}")
+        st.info("Asegúrate de que la columna 'fecha' en Google Sheets tenga un formato válido (ej: 2026-05-15 06:48).")
