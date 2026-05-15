@@ -354,55 +354,64 @@ elif selected == "Ingresar Stock":
     tab_viejo, tab_nuevo = st.tabs(["🔄 Reponer Stock (Existente)", "✨ Registrar Producto Nuevo"])
 
     with tab_viejo:
+        # Contenedor principal con borde para orden
         with st.container(border=True):
-            st.markdown("#### Actualizar Inventario")
-            col_sel, col_cant = st.columns([2, 1])
+            st.markdown("#### 🔄 Actualizar Inventario Existente")
             
-            with col_sel:
-                # Selección de producto
-                prod_lista = df_productos['nombre'].unique()
-                p_elegido = st.selectbox("Seleccionar Producto para reponer", prod_lista)
+            # Columnas para alinear todo en una sola fila visual
+            col_prod, col_info, col_input = st.columns([2, 1, 1])
+            
+            with col_prod:
+                # 1. Selector que muestra el TIPO de producto para evitar confusiones
+                # Combinamos Nombre + Tipo en la lista desplegable
+                df_productos['display_name'] = df_productos['nombre'] + " - " + df_productos['tipo']
+                p_display = st.selectbox("📦 Producto y Categoría", df_productos['display_name'].unique())
                 
-                # Obtener stock actual
-                stock_actual_val = int(df_productos.loc[df_productos['nombre'] == p_elegido, 'stock'].values[0])
+                # Extraemos los datos reales basados en la selección
+                nombre_real = p_display.split(" - ")[0]
+                tipo_real = p_display.split(" - ")[1]
                 
-                # --- LÓGICA DE COLORES DINÁMICA ---
-                if stock_actual_val >= 6:
-                    color_bg = "#10b981"  # Verde (Saludable)
-                    texto_stock = "Stock Suficiente"
-                elif 3 <= stock_actual_val <= 5:
-                    color_bg = "#f59e0b"  # Naranja (Advertencia)
-                    texto_stock = "Stock Bajo"
-                elif 1 <= stock_actual_val <= 2:
-                    color_bg = "#b45309"  # Naranja Oscuro / Marrón (Crítico)
-                    texto_stock = "Stock Muy Crítico"
-                else:
-                    color_bg = "#ef4444"  # Rojo (Agotado)
-                    texto_stock = "AGOTADO"
+                datos_actuales = df_productos[(df_productos['nombre'] == nombre_real) & 
+                                             (df_productos['tipo'] == tipo_real)].iloc[0]
+                stock_actual_val = int(datos_actuales['stock'])
 
-                # Renderizado de la "Cajita Pequeña" estilizada
+            with col_info:
+                st.write("Estado Actual")
+                # 2. Lógica de colores para la cajita pequeña
+                if stock_actual_val >= 6:
+                    color_bg, txt = "#10b981", "Suficiente" # Verde
+                elif 3 <= stock_actual_val <= 5:
+                    color_bg, txt = "#f59e0b", "Bajo"      # Naranja
+                elif 1 <= stock_actual_val <= 2:
+                    color_bg, txt = "#b45309", "Crítico"   # Naranja Oscuro
+                else:
+                    color_bg, txt = "#ef4444", "AGOTADO"   # Rojo
+
+                # Cajita pequeña y bien ordenada
                 st.markdown(f"""
                     <div style="
-                        display: inline-block;
-                        padding: 5px 15px;
-                        border-radius: 8px;
                         background-color: {color_bg};
                         color: white;
+                        padding: 8px;
+                        border-radius: 10px;
+                        text-align: center;
                         font-weight: bold;
-                        font-size: 0.9rem;
-                        margin-top: 5px;
-                        box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+                        border: 1px solid rgba(255,255,255,0.1);
+                        box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
                     ">
-                        Stock: {stock_actual_val} | {texto_stock}
+                        Stock: {stock_actual_val}<br>
+                        <span style="font-size: 0.7rem; opacity: 0.9;">{txt}</span>
                     </div>
                 """, unsafe_allow_html=True)
-            
-            with col_cant:
-                cant_entrada = st.number_input("Cantidad que llega", min_value=1, step=1, key="cant_viejo")
 
-            if st.button("📥 Confirmar Ingreso", use_container_width=True, type="primary"):
-                # Aquí conectarías con tu lógica de actualización en GSheets
-                st.success(f"¡Stock actualizado! {p_elegido}: {stock_actual_val} ➔ {stock_actual_val + cant_entrada}")
+            with col_input:
+                # 3. Input de cantidad alineado
+                cant_entrada = st.number_input("¿Cuánto llegó?", min_value=1, step=1)
+
+            st.write("##") # Espaciador
+            if st.button("📥 Confirmar Entrada de Mercancía", use_container_width=True, type="primary"):
+                # Aquí la lógica para actualizar tu Google Sheets
+                st.success(f"✅ Se cargaron {cant_entrada} unidades a: {p_display}")
                 st.balloons()
                 st.rerun()
 
