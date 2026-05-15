@@ -158,22 +158,22 @@ if selected == "Panel Principal":
 
 # --- 2. REGISTRAR VENTA ---
 elif selected == "Registrar Venta":
-    st.header("🛒 Terminal de Ventas")
+    st.header("🛒 Registro de Ventas")
     
     with st.container(border=True):
         col_c, col_p, col_can = st.columns([2, 2, 1])
         
         with col_c:
             # Lista desplegable de clientes desde la pestaña 'clientes'
-            cliente_sel = st.selectbox("Cliente", df_clientes['nombre'].unique())
+            cliente_sel = st.selectbox("Cliente", df_clientes['empresa'].unique())
         
         with col_p:
             # Solo mostrar productos con stock > 0
             prod_disponibles = df_productos[df_productos['stock'] > 0]
-            producto_sel = st.selectbox("Producto", prod_disponibles['nombre'].unique())
+            producto_sel = st.selectbox("Producto", prod_disponibles['empresa'].unique())
             
             # Obtener precio sugerido
-            precio_sug = df_productos.loc[df_productos['nombre'] == producto_sel, 'precio'].values[0]
+            precio_sug = df_productos.loc[df_productos['empresa'] == producto_sel, 'precio'].values[0]
             
         with col_can:
             cantidad = st.number_input("Cant.", min_value=1, step=1)
