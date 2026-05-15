@@ -359,21 +359,52 @@ elif selected == "Ingresar Stock":
             col_sel, col_cant = st.columns([2, 1])
             
             with col_sel:
-                # Lista de productos actuales
+                # Selección de producto
                 prod_lista = df_productos['nombre'].unique()
                 p_elegido = st.selectbox("Seleccionar Producto para reponer", prod_lista)
                 
-                # Mostrar stock actual para referencia
-                stock_actual_val = df_productos.loc[df_productos['nombre'] == p_elegido, 'stock'].values[0]
-                st.caption(f"Stock actual: {int(stock_actual_val)} unidades")
+                # Obtener stock actual
+                stock_actual_val = int(df_productos.loc[df_productos['nombre'] == p_elegido, 'stock'].values[0])
+                
+                # --- LÓGICA DE COLORES DINÁMICA ---
+                if stock_actual_val >= 6:
+                    color_bg = "#10b981"  # Verde (Saludable)
+                    texto_stock = "Stock Suficiente"
+                elif 3 <= stock_actual_val <= 5:
+                    color_bg = "#f59e0b"  # Naranja (Advertencia)
+                    texto_stock = "Stock Bajo"
+                elif 1 <= stock_actual_val <= 2:
+                    color_bg = "#b45309"  # Naranja Oscuro / Marrón (Crítico)
+                    texto_stock = "Stock Muy Crítico"
+                else:
+                    color_bg = "#ef4444"  # Rojo (Agotado)
+                    texto_stock = "AGOTADO"
+
+                # Renderizado de la "Cajita Pequeña" estilizada
+                st.markdown(f"""
+                    <div style="
+                        display: inline-block;
+                        padding: 5px 15px;
+                        border-radius: 8px;
+                        background-color: {color_bg};
+                        color: white;
+                        font-weight: bold;
+                        font-size: 0.9rem;
+                        margin-top: 5px;
+                        box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+                    ">
+                        Stock: {stock_actual_val} | {texto_stock}
+                    </div>
+                """, unsafe_allow_html=True)
             
             with col_cant:
                 cant_entrada = st.number_input("Cantidad que llega", min_value=1, step=1, key="cant_viejo")
 
             if st.button("📥 Confirmar Ingreso", use_container_width=True, type="primary"):
-                # Lógica: Sumar stock_actual + cant_entrada
-                st.success(f"¡Stock actualizado! {p_elegido}: {int(stock_actual_val)} ➔ {int(stock_actual_val + cant_entrada)}")
+                # Aquí conectarías con tu lógica de actualización en GSheets
+                st.success(f"¡Stock actualizado! {p_elegido}: {stock_actual_val} ➔ {stock_actual_val + cant_entrada}")
                 st.balloons()
+                st.rerun()
 
     with tab_nuevo:
         with st.container(border=True):
