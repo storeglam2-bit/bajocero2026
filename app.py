@@ -174,29 +174,40 @@ elif selected == "Registrar Venta":
             cliente_sel = st.selectbox("👤 Cliente", lista_cli, help="Selecciona el cliente registrado")
         
         with c2:
-            # 1. Filtramos el DataFrame para que SOLO incluya productos con stock mayor a 0
-            # Esto elimina automáticamente los productos de la tabla "Agotados"
+            # 1. FILTRO ESTRICTO: Solo productos con stock mayor a 0
+            # Usamos .copy() para evitar advertencias de manipulación de datos
             prod_disponibles = df_productos[df_productos['stock'] > 0].copy()
 
+            # 2. VERIFICACIÓN DE SEGURIDAD
             if not prod_disponibles.empty:
-                # 2. Creamos el nombre para mostrar (Nombre + Tipo) para evitar confusiones
-                prod_disponibles['display'] = prod_disponibles['nombre'] + " (" + prod_disponibles['tipo'] + ")"
+                # Creamos la etiqueta: "Nombre (Categoría) - Stock: X"
+                prod_disponibles['display'] = (
+                    prod_disponibles['nombre'] + 
+                    " (" + prod_disponibles['tipo'] + ") - Stock: " + 
+                    prod_disponibles['stock'].astype(str)
+                )
                 
-                opcion_prod = st.selectbox("📦 Producto", prod_disponibles['display'].unique())
+                # El selectbox solo mostrará lo que pasó el filtro de stock > 0
+                opcion_prod = st.selectbox(
+                    "📦 Seleccionar Producto Disponible", 
+                    options=prod_disponibles['display'].unique(),
+                    index=0
+                )
                 
-                # 3. Extraemos la información del producto seleccionado
-                nombre_real = opcion_prod.split(" (")[0]
-                # Buscamos el registro exacto para obtener el stock real
+                # 3. EXTRACCIÓN DE DATOS SEGUROS
+                # Buscamos la fila exacta comparando la nueva columna 'display'
                 datos_p = prod_disponibles[prod_disponibles['display'] == opcion_prod].iloc[0]
                 
+                nombre_real = datos_p['nombre']
                 tipo_p = datos_p['tipo']
                 precio_b = int(float(datos_p['precio']))
                 stock_r = int(datos_p['stock'])
                 
-                st.markdown(f"**Tipo:** `{tipo_p}` | **Stock:** `{stock_r}`")
+                # Pequeño indicador visual debajo del selector
+                st.markdown(f"<small>✅ Seleccionado: {nombre_real} | Categoría: {tipo_p}</small>", unsafe_allow_html=True)
             else:
-                # Mensaje en caso de que absolutamente nada tenga stock
-                st.error("⚠️ No hay productos disponibles en el inventario.")
+                # Si todos están en 0, mostramos el error que viste en tus alertas
+                st.error("⚠️ NO HAY EXISTENCIAS DISPONIBLES. Revisa 'Alertas de Control'.")
                 nombre_real, precio_b, stock_r, tipo_p = None, 0, 0, ""
 
         st.divider()
