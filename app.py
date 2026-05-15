@@ -174,19 +174,29 @@ elif selected == "Registrar Venta":
             cliente_sel = st.selectbox("👤 Cliente", lista_cli, help="Selecciona el cliente registrado")
         
         with c2:
-            prod_dis = df_productos[df_productos['stock'] > 0].copy()
-            if not prod_dis.empty:
-                prod_dis['display'] = prod_dis['nombre'] + " (" + prod_dis['tipo'] + ")"
-                opcion_prod = st.selectbox("📦 Producto", prod_dis['display'].unique())
+            # 1. Filtramos el DataFrame para que SOLO incluya productos con stock mayor a 0
+            # Esto elimina automáticamente los productos de la tabla "Agotados"
+            prod_disponibles = df_productos[df_productos['stock'] > 0].copy()
+
+            if not prod_disponibles.empty:
+                # 2. Creamos el nombre para mostrar (Nombre + Tipo) para evitar confusiones
+                prod_disponibles['display'] = prod_disponibles['nombre'] + " (" + prod_disponibles['tipo'] + ")"
                 
-                # Extracción de datos técnicos
+                opcion_prod = st.selectbox("📦 Producto", prod_disponibles['display'].unique())
+                
+                # 3. Extraemos la información del producto seleccionado
                 nombre_real = opcion_prod.split(" (")[0]
-                datos_p = prod_dis[prod_dis['nombre'] == nombre_real].iloc[0]
-                tipo_p, precio_b, stock_r = datos_p['tipo'], int(float(datos_p['precio'])), int(datos_p['stock'])
+                # Buscamos el registro exacto para obtener el stock real
+                datos_p = prod_disponibles[prod_disponibles['display'] == opcion_prod].iloc[0]
+                
+                tipo_p = datos_p['tipo']
+                precio_b = int(float(datos_p['precio']))
+                stock_r = int(datos_p['stock'])
                 
                 st.markdown(f"**Tipo:** `{tipo_p}` | **Stock:** `{stock_r}`")
             else:
-                st.error("⚠️ Sin stock disponible")
+                # Mensaje en caso de que absolutamente nada tenga stock
+                st.error("⚠️ No hay productos disponibles en el inventario.")
                 nombre_real, precio_b, stock_r, tipo_p = None, 0, 0, ""
 
         st.divider()
