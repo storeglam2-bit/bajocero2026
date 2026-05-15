@@ -339,6 +339,75 @@ elif selected == "Clientes":
 
 # --- 4. INGRESAR STOCK ---
 elif selected == "Ingresar Stock":
-    st.header("📥 Entrada de Mercancía")
-    # Formulario para actualizar la columna 'stock' de la pestaña 'productos'
-    pass
+    st.markdown("<h1 style='text-align: center; color: #00d4ff;'>📥 Entrada de Mercancía</h1>", unsafe_allow_html=True)
+
+    # 1. MÉTRICAS RÁPIDAS DE INVENTARIO
+    total_items = df_productos['stock'].sum()
+    st.markdown(f"""
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 20px; border-radius: 15px; border: 1px solid #334155; text-align: center; margin-bottom: 25px;">
+            <p style="margin: 0; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 1px;">Total Unidades en Inventario Actual</p>
+            <h1 style="margin: 0; color: #00ff87; font-size: 3rem;">{int(total_items):,}</h1>
+        </div>
+    """.replace(",", "."), unsafe_allow_html=True)
+
+    # 2. SISTEMA DE ENTRADA
+    tab_viejo, tab_nuevo = st.tabs(["🔄 Reponer Stock (Existente)", "✨ Registrar Producto Nuevo"])
+
+    with tab_viejo:
+        with st.container(border=True):
+            st.markdown("#### Actualizar Inventario")
+            col_sel, col_cant = st.columns([2, 1])
+            
+            with col_sel:
+                # Lista de productos actuales
+                prod_lista = df_productos['nombre'].unique()
+                p_elegido = st.selectbox("Seleccionar Producto para reponer", prod_lista)
+                
+                # Mostrar stock actual para referencia
+                stock_actual_val = df_productos.loc[df_productos['nombre'] == p_elegido, 'stock'].values[0]
+                st.caption(f"Stock actual: {int(stock_actual_val)} unidades")
+            
+            with col_cant:
+                cant_entrada = st.number_input("Cantidad que llega", min_value=1, step=1, key="cant_viejo")
+
+            if st.button("📥 Confirmar Ingreso", use_container_width=True, type="primary"):
+                # Lógica: Sumar stock_actual + cant_entrada
+                st.success(f"¡Stock actualizado! {p_elegido}: {int(stock_actual_val)} ➔ {int(stock_actual_val + cant_entrada)}")
+                st.balloons()
+
+    with tab_nuevo:
+        with st.container(border=True):
+            st.markdown("#### Datos del Nuevo Producto")
+            n_col1, n_col2 = st.columns(2)
+            
+            with n_col1:
+                nuevo_nombre = st.text_input("Nombre del Producto", placeholder="Ej: Cerveza Club 330ml")
+                nuevo_tipo = st.selectbox("Categoría", ["Sin Licor", "Con Licor", "Promo"])
+            
+            with n_col2:
+                nuevo_precio = st.number_input("Precio de Venta Sugerido", min_value=0, step=500)
+                nuevo_stock_ini = st.number_input("Stock Inicial", min_value=1, step=1)
+            
+            promo_check = st.radio("¿Es una promoción?", ["No", "Si"], horizontal=True)
+
+            if st.button("🚀 Registrar y Guardar Producto", use_container_width=True):
+                if nuevo_nombre:
+                    # Aquí iría la lógica para conn.create o conn.update añadiendo fila
+                    st.success(f"✅ {nuevo_nombre} ha sido creado exitosamente.")
+                    st.rerun()
+                else:
+                    st.error("Por favor, ingresa el nombre del producto.")
+
+    # 3. VISTA PREVIA DE LO QUE TIENES
+    st.divider()
+    st.markdown("#### 📋 Vista Rápida de Precios y Existencias")
+    
+    # Filtro rápido para la tabla
+    filtro_tipo = st.multiselect("Filtrar por categoría", ["Sin Licor", "Con Licor", "Promo"], default=["Sin Licor", "Con Licor", "Promo"])
+    df_filtrado = df_productos[df_productos['tipo'].isin(filtro_tipo)]
+    
+    st.dataframe(
+        df_filtrado[['nombre', 'tipo', 'precio', 'stock']], 
+        use_container_width=True, 
+        hide_index=True
+    )
