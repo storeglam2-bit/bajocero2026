@@ -252,19 +252,93 @@ elif selected == "Registrar Venta":
 
 # --- 3. CLIENTES ---
 elif selected == "Clientes":
-    st.header("👥 Administración de Clientes")
+    st.markdown("<h1 style='text-align: center; color: #00d4ff;'>👥 Administración de Clientes</h1>", unsafe_allow_html=True)
+
+    # 1. PREPARACIÓN DE DATOS
+    # Limpiamos columnas para evitar errores
+    df_clientes.columns = df_clientes.columns.str.strip()
+    total_clientes = len(df_clientes)
+
+    # --- 2. CAJITA PREMIUM: TOTAL CLIENTES ---
+    # Diseño con gradiente y sombra
+    st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            padding: 25px;
+            border-radius: 20px;
+            border: 1px solid #334155;
+            text-align: center;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+            margin-bottom: 30px;
+        ">
+            <p style="margin: 0; color: #94a3b8; font-size: 1rem; text-transform: uppercase; letter-spacing: 2px;">Cartera Total de Clientes</p>
+            <h1 style="margin: 0; color: #00d4ff; font-size: 4rem; font-weight: bold;">{total_clientes}</h1>
+            <p style="margin: 0; color: #00ff87; font-size: 0.9rem;">● Clientes registrados activamente</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # --- 3. TOP 3 CLIENTES (DISEÑO DE PODIO) ---
+    st.markdown("### 🏆 Top 3 Clientes Destacados")
+    c1, c2, c3 = st.columns(3)
     
-    col1, col2 = st.columns([1, 2])
-    with col1:
-        with st.form("nuevo_cliente"):
-            nombre_c = st.text_input("Nombre del Cliente")
-            if st.form_submit_button("Registrar"):
-                # Aquí iría conn.update() para agregar a la fila
-                st.success("Registrado")
-    
-    with col2:
-        st.subheader("Lista de Clientes")
-        st.dataframe(df_clientes, use_container_width=True)
+    # Nota: Aquí asumo que tienes una forma de medir compras, 
+    # por ahora pondremos placeholders elegantes basados en tu lista
+    with c1:
+        st.markdown("""
+            <div style="background: #1e293b; padding: 15px; border-radius: 15px; border-bottom: 4px solid #ffd700; text-align: center;">
+                <span style="font-size: 2rem;">🥇</span>
+                <p style="margin:0; font-weight: bold; color: #f8fafc;">EL DISTRITO</p>
+                <p style="margin:0; font-size: 0.8rem; color: #ffd700;">Cliente VIP</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with c2:
+        st.markdown("""
+            <div style="background: #1e293b; padding: 15px; border-radius: 15px; border-bottom: 4px solid #c0c0c0; text-align: center;">
+                <span style="font-size: 2rem;">🥈</span>
+                <p style="margin:0; font-weight: bold; color: #f8fafc;">BAJO CERO</p>
+                <p style="margin:0; font-size: 0.8rem; color: #c0c0c0;">Recurrente</p>
+            </div>
+        """, unsafe_allow_html=True)
+    with c3:
+        st.markdown("""
+            <div style="background: #1e293b; padding: 15px; border-radius: 15px; border-bottom: 4px solid #cd7f32; text-align: center;">
+                <span style="font-size: 2rem;">🥉</span>
+                <p style="margin:0; font-weight: bold; color: #f8fafc;">POZON</p>
+                <p style="margin:0; font-size: 0.8rem; color: #cd7f32;">Nuevo Socio</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # --- 4. FORMULARIO Y TABLA ---
+    col_form, col_tabla = st.columns([1, 2])
+
+    with col_form:
+        st.markdown("#### ➕ Nuevo Registro")
+        with st.container(border=True):
+            nombre_nuevo = st.text_input("Nombre de la Empresa / Cliente")
+            ciudad_cliente = st.text_input("Ciudad / Ubicación")
+            
+            if st.button("🚀 Registrar Cliente", use_container_width=True):
+                if nombre_nuevo:
+                    # Aquí iría la lógica conn.update()
+                    st.success(f"Registrado: {nombre_nuevo}")
+                    st.balloons()
+                else:
+                    st.error("Ingresa un nombre")
+
+    with col_tabla:
+        st.markdown("#### 📋 Base de Datos Actual")
+        # Mostramos la tabla compacta, profesional y sin index
+        if 'empresa' in df_clientes.columns:
+            st.dataframe(
+                df_clientes[['empresa']], 
+                use_container_width=True, 
+                hide_index=True,
+                height=400
+            )
+        else:
+            st.warning("No se encontró la columna 'empresa'")
 
 # --- 4. INGRESAR STOCK ---
 elif selected == "Ingresar Stock":
