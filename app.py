@@ -158,31 +158,97 @@ if selected == "Panel Principal":
 
 # --- 2. REGISTRAR VENTA ---
 elif selected == "Registrar Venta":
-    st.header("🛒 Registro de Ventas")
-    
+    st.title("🛒 Registro de Ventas")
+
+    # 1. INICIALIZACIÓN DEL CARRITO (Estado de sesión)
+    if 'carrito' not in st.session_state:
+        st.session_state.carrito = []
+
+    # Limpieza de nombres de columnas para evitar errores de búsqueda
+    df_clientes.columns = df_clientes.columns.str.strip()
+    df_productos.columns = df_productos.columns.str.strip()
+
+    # 2. ÁREA DE SELECCIÓN DE PRODUCTOS
     with st.container(border=True):
         col_c, col_p, col_can = st.columns([2, 2, 1])
         
         with col_c:
-            # Lista desplegable de clientes desde la pestaña 'clientes'
-            cliente_sel = st.selectbox("Cliente", df_clientes['empresa'].unique())
+            # Lista desplegable de clientes basada en la columna 'empresa'
+            lista_clientes = df_clientes['empresa'].unique() if 'empresa' in df_clientes.columns else []
+            cliente_sel = st.selectbox("👤 Seleccionar Cliente", lista_clientes)
         
         with col_p:
-            # Solo mostrar productos con stock > 0
+            # Filtro: Solo productos con stock mayor a cero
             prod_disponibles = df_productos[df_productos['stock'] > 0]
-            producto_sel = st.selectbox("Producto", prod_disponibles['nombre'].unique())
-            
-            # Obtener precio sugerido
-            precio_sug = df_productos.loc[df_productos['nombre'] == producto_sel, 'precio'].values[0]
-            
-        with col_can:
-            cantidad = st.number_input("Cant.", min_value=1, step=1)
+            if not prod_disponibles.empty:
+                producto_sel = st.selectbox("📦 Producto", prod_disponibles['nombre'].unique())
+                # Obtener datos base del producto
+                datos_prod = prod_disponibles[prod_disponibles['nombre'] == producto_sel].iloc[0]
+                precio_sugerido = float(datos_prod['precio'])
+                stock_limite = int(datos_prod['stock'])
+            else:
+                st.error("No hay productos disponibles")
+                producto_sel, precio_sugerido, stock_limite = None, 0, 0
 
-        precio_final = st.number_input("Precio de Venta (Editable)", value=float(precio_sug))
+        with col_can:
+            # Control de cantidad con límite de stock real
+            cantidad = st.number_input("Cant.", min_value=1, max_value=stock_limite if stock_limite > 0 else 1, step=1)
+
+        # Precio editable y botón de agregar
+        c_pre, c_btn = st.columns([2, 1])
+        with c_pre:
+            precio_final = st.number_input("💰 Precio de Venta (Editable)", value=precio_sugerido)
         
-        if st.button("Añadir al carrito"):
-            # Lógica para guardar temporalmente antes de subir a la pestaña 'ventas'
-            st.toast(f"Añadido: {producto_sel} x{cantidad}")
+        with c_btn:
+            st.write("##") # Espaciador para alinear
+            if st.button("➕ Añadir al Carrito", use_container_width=True):
+                if producto_sel:
+                    # Agregamos el objeto al carrito en memoria
+                    st.session_state.carrito.append({
+                        "id": len(st.session_state.carrito), # ID temporal para eliminar
+                        "Producto": producto_sel,
+                        "Cant": cantidad,
+                        "Precio": precio_final,
+                        "Subtotal": cantidad * precio_final
+                    })
+                    st.toast(f"Añadido: {producto_sel}")
+
+    # 3. VISUALIZACIÓN DEL CARRITO Y ACCIONES
+    if st.session_state.carrito:
+        st.subheader("📝 Resumen de la Venta")
+        
+        # Convertimos el carrito a DataFrame para mostrarlo elegantemente
+        df_carro = pd.DataFrame(st.session_state.carrito)
+        
+        # Mostramos la tabla (ocultamos la columna 'id' interna)
+        st.dataframe(df_carro[["Producto", "Cant", "Precio", "Subtotal"]], use_container_width=True, hide_index=True)
+        
+        total_a_pagar = df_carro['Subtotal'].sum()
+        
+        # Botones de control inferior
+        f1, f2, f3 = st.columns([1, 1, 1])
+        
+        with f1:
+            st.metric("Total General", f"${total_a_pagar:,.0f}")
+            
+        with f2:
+            # Opción para eliminar el ÚLTIMO ítem agregado (fácil corrección de errores)
+            if st.button("⏪ Eliminar Último", use_container_width=True):
+                if st.session_state.carrito:
+                    eliminado = st.session_state.carrito.pop()
+                    st.warning(f"Se quitó: {eliminado['Producto']}")
+                    st.rerun()
+
+        with f3:
+            # REGISTRO FINAL
+            if st.button("✅ Confirmar Venta", type="primary", use_container_width=True):
+                # Aquí se añadiría la lógica para escribir en GSheets (lo haremos a continuación)
+                st.success(f"Venta registrada para {cliente_sel}")
+                st.balloons()
+                st.session_state.carrito = [] # Limpiamos el carrito tras éxito
+                # st.rerun() # Opcional: refrescar para limpiar pantalla
+    else:
+        st.info("El carrito está vacío. Selecciona productos arriba para empezar.")
 
 # --- 3. CLIENTES ---
 elif selected == "Clientes":
