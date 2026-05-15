@@ -174,35 +174,49 @@ elif selected == "Registrar Venta":
             cliente_sel = st.selectbox("👤 Cliente", lista_cli)
         
         with c2:
-            # --- LIMPIEZA Y FILTRO DE SEGURIDAD ---
-            # Aseguramos que el stock sea tratado como número para que el filtro > 0 funcione
+            # 1. Filtro estricto de stock numérico
             df_productos['stock'] = pd.to_numeric(df_productos['stock'], errors='coerce').fillna(0)
-            
-            # Filtramos: Solo lo que realmente tiene existencias
             df_vta = df_productos[df_productos['stock'] > 0].copy()
 
             if not df_vta.empty:
-                # Generamos la etiqueta con nombre, tipo y stock exacto
-                df_vta['display'] = (
-                    df_vta['nombre'] + 
-                    " (" + df_vta['tipo'] + ") | Stock: " + 
-                    df_vta['stock'].astype(int).astype(str)
-                )
+                # Quitamos el stock del nombre (Solo Nombre y Tipo)
+                df_vta['display'] = df_vta['nombre'] + " (" + df_vta['tipo'] + ")"
                 
                 opcion_prod = st.selectbox(
-                    "📦 Seleccionar Producto Disponible", 
+                    "📦 Seleccionar Producto", 
                     options=df_vta['display'].unique(),
                     key="prod_vta_selector"
                 )
                 
-                # Extraemos los datos del producto seleccionado
                 datos_p = df_vta[df_vta['display'] == opcion_prod].iloc[0]
                 nombre_real = datos_p['nombre']
                 tipo_p = datos_p['tipo']
                 precio_b = int(float(datos_p['precio']))
                 stock_r = int(datos_p['stock'])
                 
-                st.markdown(f"**Categoría:** `{tipo_p}` | **Disponible:** `{stock_r}`")
+                # 2. CAJITA INFORMATIVA MEJOR DISEÑADA (Reemplaza el recuadro rojo)
+                st.markdown(f"""
+                    <div style="
+                        background-color: #1e293b; 
+                        padding: 12px; 
+                        border-radius: 10px; 
+                        border: 1px solid #334155;
+                        margin-top: 5px;
+                    ">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #94a3b8; font-size: 0.85rem; font-weight: bold;">DETALLES</span>
+                            <span style="background-color: #059669; color: white; padding: 2px 8px; border-radius: 5px; font-size: 0.75rem;">DISPONIBLE</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                            <div style="color: #e2e8f0; font-size: 0.95rem;">
+                                🏷️ <b>Tipo:</b> {tipo_p}
+                            </div>
+                            <div style="color: #10b981; font-size: 1.1rem; font-weight: bold;">
+                                {stock_r} <small style="font-size: 0.7rem;">uds</small>
+                            </div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
             else:
                 st.error("⚠️ NO HAY STOCK DISPONIBLE")
                 nombre_real, precio_b, stock_r, tipo_p = None, 0, 0, ""
