@@ -150,11 +150,11 @@ if selected == "Panel Principal":
 
     with tab2:
         st.markdown("### Inventario Con Licor")
-        st.dataframe(inv_con_licor[['nombre', 'precio', 'stock']], use_container_width=True, hide_index=True)
+        st.dataframe(inv_con_licor[inv_con_licor['stock'] > 0 ][['nombre', 'precio', 'stock']], use_container_width=True, hide_index=True)
 
     with tab3:
         st.markdown("### Inventario de Promociones (Si)")
-        st.dataframe(inv_promos[['nombre', 'tipo', 'precio', 'stock']], use_container_width=True, hide_index=True)
+        st.dataframe(inv_promos[inv_promos['stock'] > 0 ][['nombre', 'tipo', 'precio', 'stock']], use_container_width=True, hide_index=True)
 
 # --- 2. REGISTRAR VENTA ---
 elif selected == "Registrar Venta":
@@ -258,13 +258,18 @@ elif selected == "Registrar Venta":
                         if not idx.empty:
                             df_actualizado.loc[idx, 'stock'] -= c_vta
 
-                    # Actualización en Sheets
+                    # 1. Guardar en Google Sheets
                     conn.update(worksheet="productos", data=df_actualizado)
                     
-                    st.success("🎉 Venta registrada correctamente.")
-                    st.balloons()
+                    # 2. IMPORTANTE: Si usas caché para leer los datos, límpialo aquí
+                    # st.cache_data.clear() 
+                    
+                    st.success("🎉 Venta registrada. Inventario actualizado.")
                     st.session_state.carrito = []
-                    st.rerun() # Esto refresca el filtro de stock > 0 inmediatamente
+                    
+                    # 3. Al hacer rerun, el Panel Principal volverá a leer df_productos
+                    # y el filtro stock > 0 excluirá los que llegaron a cero.
+                    st.rerun() 
                     
                 except Exception as e:
                     st.error(f"Error: {e}")
