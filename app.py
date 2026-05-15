@@ -558,7 +558,7 @@ if selected == "Historial de Ventas":
             metrics = [
                 ("INGRESOS TOTALES", f"${df_ventas['total'].sum():,.0f}", "💰"),
                 ("UNIDADES", f"{int(pd.to_numeric(df_ventas['cantidad']).sum())}", "📦"),
-                ("TOP CLIENTE", df_ventas.groupby('cliente')['total'].sum().idxmax()[:12], "🏆"),
+                ("TOP CLIENTE", df_ventas.groupby('cliente')['total'].sum().idxmax()[:11], "🏆"),
                 ("TICKET PROM.", f"${df_ventas['total'].mean():,.0f}", "📊")
             ]
 
