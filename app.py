@@ -22,7 +22,7 @@ with st.sidebar:
     st.title("❄️ Bajo Cero")
     selected = option_menu(
         menu_title=None,
-        options=["Panel Principal", "Registrar Venta", "Clientes", "Ingresar Stock"],
+        options=["Panel Principal", "Registrar Venta", "Clientes", "Ingresar Stock", "Historial de Ventas"],
         icons=["grid-1x2", "cart-plus", "people", "plus-circle"],
         default_index=0,
         styles={
