@@ -256,53 +256,102 @@ elif selected == "Registrar Venta":
                     st.toast(f"✅ {nombre_real} añadido")
                     st.rerun()
 
-    # 3. Resumen y Confirmación
+    # 3. Resumen y Confirmación de Venta
     if st.session_state.carrito:
+        st.write("##")
         st.markdown("### 📋 Factura Temporal")
+        
         df_carro = pd.DataFrame(st.session_state.carrito)
-        st.dataframe(df_carro[["Producto", "Tipo", "Cant", "Precio", "Subtotal"]], 
-                     use_container_width=True, hide_index=True)
+        
+        # Tabla con estilo
+        st.dataframe(
+            df_carro[["Producto", "Tipo", "Cant", "Precio", "Subtotal"]], 
+            use_container_width=True, 
+            hide_index=True
+        )
         
         total_vta = int(df_carro['Subtotal'].sum())
 
+        # Contenedor de Total Premium
         st.markdown(f"""
-            <div style="background-color: #064e3b; padding: 20px; border-radius: 15px; border-left: 10px solid #10b981; text-align: center;">
-                <p style="margin: 0; color: #a7f3d0; font-weight: bold;">TOTAL A COBRAR</p>
-                <h1 style="margin: 0; color: #ffffff; font-size: 3rem;">${total_vta:,}</h1>
+            <div style="
+                background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); 
+                padding: 30px; 
+                border-radius: 20px; 
+                border: 1px solid #10b981; 
+                text-align: center;
+                box-shadow: 0 10px 30px rgba(16, 185, 129, 0.2);
+                margin-bottom: 25px;
+            ">
+                <p style="margin: 0; color: #a7f3d0; font-weight: bold; letter-spacing: 2px; font-size: 0.9rem;">TOTAL A COBRAR</p>
+                <h1 style="margin: 0; color: #ffffff; font-size: 3.5rem; font-weight: 900;">${total_vta:,}</h1>
             </div>
         """.replace(",", "."), unsafe_allow_html=True)
 
-        col_v1, col_v2 = st.columns([1, 2])
+        col_v1, col_v2 = st.columns([1, 2.5])
+        
         with col_v1:
-            if st.button("🗑️ Vaciar", use_container_width=True):
+            st.write("##")
+            if st.button("🗑️ Vaciar Carrito", use_container_width=True):
                 st.session_state.carrito = []
                 st.rerun()
+        
         with col_v2:
-            if st.button("🚀 CONFIRMAR REGISTRO DE VENTA", type="primary", use_container_width=True):
+            st.write("##")
+            # BOTÓN PREMIUM CON CSS INYECTADO
+            btn_confirmar = st.button("🚀 FINALIZAR Y REGISTRAR VENTA", type="primary", use_container_width=True)
+            
+            if btn_confirmar:
                 try:
-                    df_actualizado = df_productos.copy()
+                    # --- PASO A: Preparar datos para "ventas" ---
+                    import datetime
+                    ahora = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+                    
+                    nuevas_ventas = []
                     for item in st.session_state.carrito:
-                        n_vta, t_vta, c_vta = item["Producto"], item["Tipo"], item["Cant"]
-                        idx = df_actualizado[(df_actualizado['nombre'] == n_vta) & 
-                                            (df_actualizado['tipo'] == t_vta)].index
-                        if not idx.empty:
-                            df_actualizado.loc[idx, 'stock'] -= c_vta
+                        nuevas_ventas.append({
+                            "fecha": ahora,
+                            "cliente": cliente_sel,
+                            "producto": f"{item['Producto']} - {item['Tipo']}",
+                            "cantidad": item["Cant"],
+                            "precio_unitario": item["Precio"],
+                            "total": item["Subtotal"],
+                            "metodo": "Por definir" # Puedes añadir un selectbox para esto
+                        })
+                    
+                    df_nuevas_filas = pd.DataFrame(nuevas_ventas)
 
-                    # 1. Guardar en Google Sheets
-                    conn.update(worksheet="productos", data=df_actualizado)
+                    # --- PASO B: Actualizar Stock en "productos" ---
+                    df_prod_actualizado = df_productos.copy()
+                    for item in st.session_state.carrito:
+                        idx = df_prod_actualizado[
+                            (df_prod_actualizado['nombre'] == item["Producto"]) & 
+                            (df_prod_actualizado['tipo'] == item["Tipo"])
+                        ].index
+                        if not idx.empty:
+                            df_prod_actualizado.loc[idx, 'stock'] -= item["Cant"]
+
+                    # --- PASO C: ESCRIBIR EN GOOGLE SHEETS ---
+                    # 1. Leemos las ventas actuales para hacer el append
+                    df_ventas_historial = conn.read(worksheet="ventas")
+                    df_final_ventas = pd.concat([df_ventas_historial, df_nuevas_filas], ignore_index=True)
                     
-                    # 2. IMPORTANTE: Si usas caché para leer los datos, límpialo aquí
-                    # st.cache_data.clear() 
+                    # 2. Actualizamos ambas hojas
+                    conn.update(worksheet="ventas", data=df_final_ventas)
+                    conn.update(worksheet="productos", data=df_prod_actualizado)
                     
-                    st.success("🎉 Venta registrada. Inventario actualizado.")
+                    # --- FINALIZACIÓN ---
+                    st.balloons()
+                    st.success(f"✅ Venta de {cliente_sel} registrada con éxito.")
                     st.session_state.carrito = []
                     
-                    # 3. Al hacer rerun, el Panel Principal volverá a leer df_productos
-                    # y el filtro stock > 0 excluirá los que llegaron a cero.
-                    st.rerun() 
+                    # Pausa breve para ver el éxito y recargar
+                    import time
+                    time.sleep(2)
+                    st.rerun()
                     
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(f"❌ Error al registrar: {e}")
 
 # --- 3. CLIENTES ---
 elif selected == "Clientes":
