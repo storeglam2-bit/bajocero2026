@@ -160,11 +160,11 @@ if selected == "Panel Principal":
 elif selected == "Registrar Venta":
     st.title("🛒 Terminal de Ventas")
 
-    # 1. Inicializar carrito
+    # 1. Inicializar carrito si no existe
     if 'carrito' not in st.session_state:
         st.session_state.carrito = []
 
-    # 2. Limpieza y preparación de datos
+    # 2. Limpieza de datos de GSheets
     df_clientes.columns = df_clientes.columns.str.strip()
     df_productos.columns = df_productos.columns.str.strip()
 
@@ -173,77 +173,88 @@ elif selected == "Registrar Venta":
         c1, c2, c3 = st.columns([2, 2, 1])
         
         with c1:
-            # Clientes: Usamos la columna 'empresa'
             lista_cli = df_clientes['empresa'].unique() if 'empresa' in df_clientes.columns else []
             cliente_sel = st.selectbox("👤 Seleccionar Cliente", lista_cli)
         
         with c2:
-            # Productos: Usamos la columna 'nombre'
-            prod_dis = df_productos[df_productos['stock'] > 0]
+            # Filtramos productos con stock
+            prod_dis = df_productos[df_productos['stock'] > 0].copy()
+            
             if not prod_dis.empty:
-                producto_sel = st.selectbox("📦 Producto", prod_dis['nombre'].unique())
-                datos_p = prod_dis[prod_dis['nombre'] == producto_sel].iloc[0]
-                # Convertimos precio a entero inmediatamente
+                # CREAMOS UNA ETIQUETA: "Nombre (Tipo)" para el selector
+                prod_dis['display'] = prod_dis['nombre'] + " (" + prod_dis['tipo'] + ")"
+                
+                opcion_prod = st.selectbox("📦 Producto", prod_dis['display'].unique())
+                
+                # Extraemos el nombre real y el tipo para la base de datos
+                nombre_real = opcion_prod.split(" (")[0]
+                datos_p = prod_dis[prod_dis['nombre'] == nombre_real].iloc[0]
+                
+                tipo_prod = datos_p['tipo']
                 precio_base = int(float(datos_p['precio'])) 
                 stock_real = int(datos_p['stock'])
+                
+                st.caption(f"Tipo: **{tipo_prod}** | Stock: {stock_real}")
             else:
-                st.warning("Sin stock")
-                producto_sel, precio_base, stock_real = None, 0, 0
+                st.warning("Sin stock disponible")
+                nombre_real, precio_base, stock_real, tipo_prod = None, 0, 0, ""
 
         with c3:
             cantidad = st.number_input("Cant.", min_value=1, max_value=stock_real if stock_real > 0 else 1, step=1)
 
-    # 4. Precio Editable y Botón de Agregar
+    # 4. Precio Editable (Entero) y Botón
     col_p, col_b = st.columns([2, 1])
     with col_p:
-        # El precio de venta también se maneja como entero
-        precio_vta = st.number_input("💰 Precio de Venta (Manual)", value=precio_base, step=1)
+        precio_vta = st.number_input("💰 Precio de Venta", value=precio_base, step=1)
     
     with col_b:
         st.write("##")
         if st.button("➕ Añadir al Carrito", use_container_width=True):
-            if producto_sel:
+            if nombre_real:
+                # Guardamos los datos con nombres de columna consistentes
                 st.session_state.carrito.append({
-                    "Producto": producto_sel,
+                    "Producto": nombre_real,
+                    "Tipo": tipo_prod,
                     "Cant": int(cantidad),
                     "Precio": int(precio_vta),
                     "Subtotal": int(cantidad * precio_vta)
                 })
-                st.toast(f"{producto_sel} añadido")
+                st.toast(f"Añadido: {nombre_real}")
+                st.rerun() # Refrescar para actualizar la tabla abajo
 
-    # 5. Resumen de la Venta (Corregido para evitar KeyError)
-    if st.session_state.carrito:
+    # 5. Resumen de la Venta (SOLO SE MUESTRA SI HAY ALGO EN EL CARRITO)
+    if len(st.session_state.carrito) > 0:
         st.divider()
         st.subheader("📋 Resumen de la Venta")
         
         df_carro = pd.DataFrame(st.session_state.carrito)
         
-        # Mostramos la tabla con los nombres exactos definidos arriba
+        # Seleccionamos las columnas exactas para evitar el KeyError
         st.dataframe(
-            df_carro[["Producto", "Cant", "Precio", "Subtotal"]], 
+            df_carro[["Producto", "Tipo", "Cant", "Precio", "Subtotal"]], 
             use_container_width=True, 
             hide_index=True
         )
         
-        # Totales y Acciones
+        total_vta = int(df_carro['Subtotal'].sum())
+        
         v1, v2, v3 = st.columns([1.5, 1, 1.5])
         with v1:
-            total_vta = int(df_carro['Subtotal'].sum())
-            st.markdown(f"### Total: `${total_vta:,}`".replace(",", ".")) # Formato miles con punto
+            st.metric("Total General", f"${total_vta:,}".replace(",", "."))
         
         with v2:
-            if st.button("🗑️ Vaciar", use_container_width=True):
+            if st.button("🗑️ Vaciar Carrito", use_container_width=True):
                 st.session_state.carrito = []
                 st.rerun()
         
         with v3:
             if st.button("🚀 Confirmar Venta", type="primary", use_container_width=True):
-                # Lógica futura: guardar en GSheets 'ventas' y restar stock
-                st.success(f"Venta para {cliente_sel} registrada con éxito")
+                # Aquí procesarías la escritura en Google Sheets
+                st.success("Venta procesada exitosamente")
                 st.balloons()
                 st.session_state.carrito = []
     else:
-        st.info("Selecciona productos para iniciar la venta.")
+        st.info("El carrito está vacío. Selecciona un producto y presiona 'Añadir'.")
 
 # --- 3. CLIENTES ---
 elif selected == "Clientes":
