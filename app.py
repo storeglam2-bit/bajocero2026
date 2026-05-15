@@ -613,3 +613,41 @@ if selected == "Historial de Ventas":
 
     except Exception as e:
         st.error(f"Error visual: {e}")
+
+# --- 3. TABLA DE VENTAS CON DISEÑO PREMIUM ---
+    st.write("##")
+    st.markdown("""
+                <div style="background: linear-gradient(90deg, #0f172a 0%, #1e293b 100%); padding: 15px; border-radius: 15px 15px 0 0; border: 1px solid #334155; border-bottom: none;">
+                    <span style="color: #38bdf8; font-size: 1.2rem; font-weight: 700;">📄 Registro Cronológico de Ventas</span>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # Estilizamos el dataframe usando column_config para que se vea Pro
+    st.dataframe(
+                df_ventas[['fecha', 'cliente', 'producto', 'cantidad', 'total', 'metodo']].sort_values(by='fecha', ascending=False),
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "fecha": st.column_config.DatetimeColumn("📅 Fecha y Hora", format="DD/MM/YY HH:mm"),
+                    "cliente": st.column_config.TextColumn("👤 Cliente"),
+                    "producto": st.column_config.TextColumn("📦 Producto"),
+                    "cantidad": st.column_config.NumberColumn("Cant.", format="%d uds"),
+                    "total": st.column_config.NumberColumn("Monto Total", format="$%d"),
+                    "metodo": st.column_config.SelectboxColumn(
+                        "💳 Método",
+                        options=["Nequi/Daviplata", "Transferencia", "Efectivo"],
+                    )
+                }
+            )
+
+            # --- BOTÓN DE DESCARGA ESTILIZADO ---
+    col_down, col_empty = st.columns([1, 3])
+    with col_down:
+                csv = df_ventas.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Exportar Reporte Mensual",
+                    data=csv,
+                    file_name=f"Ventas_BajoCero_{df_ventas['mes'].iloc[0]}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
