@@ -157,6 +157,7 @@ if selected == "Panel Principal":
         st.dataframe(inv_promos[['nombre', 'tipo', 'precio', 'stock']], use_container_width=True, hide_index=True)
 
 # --- 2. REGISTRAR VENTA ---
+# --- 2. REGISTRAR VENTA ---
 elif selected == "Registrar Venta":
     st.markdown("<h1 style='text-align: center; color: #00d4ff;'>💎 Terminal de Ventas Pro</h1>", unsafe_allow_html=True)
 
@@ -170,56 +171,57 @@ elif selected == "Registrar Venta":
         c1, c2 = st.columns(2)
         
         with c1:
+            # Validación de Clientes
             lista_cli = df_clientes['empresa'].unique() if 'empresa' in df_clientes.columns else []
             cliente_sel = st.selectbox("👤 Cliente", lista_cli, help="Selecciona el cliente registrado")
         
         with c2:
-            # 1. FILTRO ESTRICTO: Solo productos con stock mayor a 0
-            # Usamos .copy() para evitar advertencias de manipulación de datos
-            prod_disponibles = df_productos[df_productos['stock'] > 0].copy()
+            # --- FILTRO CRÍTICO --- 
+            # Solo permitimos productos donde el stock sea estrictamente mayor a cero
+            # Usamos .copy() para que sea un objeto nuevo y no una vista
+            df_vta = df_productos[df_productos['stock'] > 0].copy()
 
-            # 2. VERIFICACIÓN DE SEGURIDAD
-            if not prod_disponibles.empty:
-                # Creamos la etiqueta: "Nombre (Categoría) - Stock: X"
-                prod_disponibles['display'] = (
-                    prod_disponibles['nombre'] + 
-                    " (" + prod_disponibles['tipo'] + ") - Stock: " + 
-                    prod_disponibles['stock'].astype(str)
+            if not df_vta.empty:
+                # Creamos la etiqueta de visualización dinámica
+                df_vta['display'] = (
+                    df_vta['nombre'] + 
+                    " (" + df_vta['tipo'] + ") | Stock: " + 
+                    df_vta['stock'].astype(int).astype(str)
                 )
                 
-                # El selectbox solo mostrará lo que pasó el filtro de stock > 0
+                # El selectbox SOLO contiene productos con existencias
                 opcion_prod = st.selectbox(
                     "📦 Seleccionar Producto Disponible", 
-                    options=prod_disponibles['display'].unique(),
-                    index=0
+                    options=df_vta['display'].unique(),
+                    index=0,
+                    key="selector_venta"
                 )
                 
-                # 3. EXTRACCIÓN DE DATOS SEGUROS
-                # Buscamos la fila exacta comparando la nueva columna 'display'
-                datos_p = prod_disponibles[prod_disponibles['display'] == opcion_prod].iloc[0]
+                # Extracción de datos técnica basada en la selección única
+                datos_p = df_vta[df_vta['display'] == opcion_prod].iloc[0]
                 
                 nombre_real = datos_p['nombre']
                 tipo_p = datos_p['tipo']
                 precio_b = int(float(datos_p['precio']))
                 stock_r = int(datos_p['stock'])
                 
-                # Pequeño indicador visual debajo del selector
-                st.markdown(f"<small>✅ Seleccionado: {nombre_real} | Categoría: {tipo_p}</small>", unsafe_allow_html=True)
+                # Badge de estado rápido
+                st.markdown(f"**Categoría:** `{tipo_p}` | **Disponible:** `{stock_r}`")
             else:
-                # Si todos están en 0, mostramos el error que viste en tus alertas
-                st.error("⚠️ NO HAY EXISTENCIAS DISPONIBLES. Revisa 'Alertas de Control'.")
+                st.error("⚠️ NO HAY STOCK DISPONIBLE EN NINGÚN PRODUCTO")
                 nombre_real, precio_b, stock_r, tipo_p = None, 0, 0, ""
 
         st.divider()
         
         c3, c4, c5 = st.columns([1, 2, 1])
         with c3:
-            cantidad = st.number_input("Cantidad", min_value=1, max_value=stock_r if stock_r > 0 else 1, step=1)
+            # El máximo permitido es el stock real
+            cantidad = st.number_input("Cantidad", min_value=1, max_value=max(1, stock_r), step=1)
         with c4:
             precio_vta = st.number_input("💰 Precio Unitario Final", value=precio_b, step=500)
         with c5:
             st.write("##")
-            if st.button("➕ Añadir", use_container_width=True):
+            if st.button("➕ Añadir", use_container_width=True, disabled=stock_r <= 0):
                 if nombre_real:
                     st.session_state.carrito.append({
                         "Producto": nombre_real, "Tipo": tipo_p,
@@ -234,29 +236,21 @@ elif selected == "Registrar Venta":
         st.markdown("### 📋 Factura Temporal")
         df_carro = pd.DataFrame(st.session_state.carrito)
         
-        # Tabla limpia
+        # Tabla limpia sin índices
         st.dataframe(df_carro[["Producto", "Tipo", "Cant", "Precio", "Subtotal"]], 
                      use_container_width=True, hide_index=True)
         
         total_vta = int(df_carro['Subtotal'].sum())
 
-        # --- CAJA VERDE DE TOTAL (DISEÑO PROFESIONAL) ---
+        # Caja de Total Estilo Premium
         st.markdown(f"""
-            <div style="
-                background-color: #064e3b; 
-                padding: 20px; 
-                border-radius: 15px; 
-                border-left: 10px solid #10b981;
-                margin: 20px 0;
-                text-align: center;
-                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-            ">
+            <div style="background-color: #064e3b; padding: 20px; border-radius: 15px; 
+                        border-left: 10px solid #10b981; margin: 20px 0; text-align: center;">
                 <p style="margin: 0; font-size: 1.2rem; color: #a7f3d0; font-weight: bold;">TOTAL A COBRAR</p>
                 <h1 style="margin: 0; color: #ffffff; font-size: 3rem;">${total_vta:,}</h1>
             </div>
-        """, unsafe_allow_html=True)
+        """.replace(",", "."), unsafe_allow_html=True)
 
-        # Acciones Finales
         col_v1, col_v2 = st.columns([1, 2])
         with col_v1:
             if st.button("🗑️ Vaciar Carrito", use_container_width=True):
@@ -265,44 +259,31 @@ elif selected == "Registrar Venta":
         with col_v2:
             if st.button("🚀 CONFIRMAR REGISTRO DE VENTA", type="primary", use_container_width=True):
                 try:
-                    # 1. PREPARAR LA ACTUALIZACIÓN
-                    # Creamos una copia del dataframe de productos para trabajar
+                    # PROCESO DE DESCUENTO DE STOCK
                     df_actualizado = df_productos.copy()
                     
-                    # Recorremos cada ítem del carrito para restar del inventario
                     for item in st.session_state.carrito:
-                        nombre_vta = item["Producto"]
-                        tipo_vta = item["Tipo"]
-                        cant_vta = item["Cant"]
+                        n_vta, t_vta, c_vta = item["Producto"], item["Tipo"], item["Cant"]
                         
-                        # Localizamos la fila exacta (Nombre + Tipo)
-                        idx = df_actualizado[(df_actualizado['nombre'] == nombre_vta) & 
-                                            (df_actualizado['tipo'] == tipo_vta)].index
+                        # Buscamos por nombre Y tipo para ser precisos
+                        idx = df_actualizado[(df_actualizado['nombre'] == n_vta) & 
+                                            (df_actualizado['tipo'] == t_vta)].index
                         
                         if not idx.empty:
-                            # Restamos la cantidad
-                            df_actualizado.loc[idx, 'stock'] -= cant_vta
+                            df_actualizado.loc[idx, 'stock'] -= c_vta
 
-                    # 2. ENVIAR A GOOGLE SHEETS
-                    # Aquí usamos la función de tu conexión para sobreescribir la hoja de productos
-                    # Nota: Asegúrate de que 'conn' y el nombre de la hoja sean correctos
+                    # Subida a la nube
                     conn.update(worksheet="productos", data=df_actualizado)
                     
-                    # 3. (OPCIONAL) REGISTRAR EN EL HISTORIAL DE VENTAS
-                    # Si tienes una pestaña llamada 'ventas', aquí añadirías las filas del carrito
-                    # conn.append_rows(worksheet="ventas", data=st.session_state.carrito)
-
-                    st.success("🎉 ¡Venta registrada y stock actualizado con éxito!")
+                    st.success("🎉 ¡Venta registrada y stock actualizado!")
                     st.balloons()
-                    
-                    # Limpiamos carrito y forzamos reinicio para ver el nuevo stock
                     st.session_state.carrito = []
-                    st.rerun()
+                    st.rerun() # RECARGA PARA QUE EL FILTRO DE STOCK > 0 ACTÚE
                     
                 except Exception as e:
-                    st.error(f"Hubo un error al guardar: {e}")
+                    st.error(f"Error al procesar: {e}")
     else:
-        st.info("💡 El carrito está esperando tu primera selección.")
+        st.info("💡 Selecciona un producto y cantidad para empezar la venta.")
 
 # --- 3. CLIENTES ---
 elif selected == "Clientes":
