@@ -170,10 +170,10 @@ elif selected == "Registrar Venta":
         with col_p:
             # Solo mostrar productos con stock > 0
             prod_disponibles = df_productos[df_productos['stock'] > 0]
-            producto_sel = st.selectbox("Producto", prod_disponibles['empresa'].unique())
+            producto_sel = st.selectbox("Producto", prod_disponibles['nombre'].unique())
             
             # Obtener precio sugerido
-            precio_sug = df_productos.loc[df_productos['empresa'] == producto_sel, 'precio'].values[0]
+            precio_sug = df_productos.loc[df_productos['nombre'] == producto_sel, 'precio'].values[0]
             
         with col_can:
             cantidad = st.number_input("Cant.", min_value=1, step=1)
