@@ -203,7 +203,7 @@ elif selected == "Registrar Venta":
                     texto_estado = "AGOTÁNDOSE"
                 else:  # Entre 1 y 4 unidades (Crítico)
                     color_bg = "#991b1b"  # Rojo Oscuro (Crítico)
-                    texto_estado = "ESTADO CRÍTICO"
+                    texto_estado = "CRÍTICO"
 
                 # 3. Diseño de la Tarjeta Informativa
                 st.markdown(f"""
