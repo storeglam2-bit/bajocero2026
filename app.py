@@ -2,6 +2,8 @@ import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from streamlit_option_menu import option_menu
+import plotly.express as px
+import plotly.graph_objects as go
 
 # Configuración inicial
 st.set_page_config(page_title="Bajo Cero Dashboard", layout="wide")
@@ -504,83 +506,106 @@ elif selected == "Ingresar Stock":
         hide_index=True
     )
 
-
-# --- 3. HISTORIAL DE VENTAS ---
+# --- 5. HISTORIAL DE VENTAS PREMIUM ---
 elif selected == "Historial de Ventas":
-    st.markdown("<h1 style='text-align: center; color: #00d4ff;'>📋 Registro Global de Ventas</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #00d4ff;'>📊 Dashboard Analítico de Ventas</h1>", unsafe_allow_html=True)
 
     try:
-        # Cargamos los datos de la hoja 'ventas'
+        # Carga de datos desde la hoja 'ventas'
         df_ventas = conn.read(worksheet="ventas")
         
         if not df_ventas.empty:
-            # Aseguramos formatos numéricos para cálculos precisos
-            df_ventas['cantidad'] = pd.to_numeric(df_ventas['cantidad'], errors='coerce').fillna(0)
-            df_ventas['precio_unitario'] = pd.to_numeric(df_ventas['precio_unitario'], errors='coerce').fillna(0)
+            # Procesamiento de fechas y números
+            df_ventas['fecha'] = pd.to_datetime(df_ventas['fecha'])
             df_ventas['total'] = pd.to_numeric(df_ventas['total'], errors='coerce').fillna(0)
+            df_ventas['cantidad'] = pd.to_numeric(df_ventas['cantidad'], errors='coerce').fillna(0)
 
-            # --- SECCIÓN DE FILTROS ---
-            with st.container(border=True):
-                st.markdown("#### 🔍 Filtros de Búsqueda")
-                f1, f2, f3 = st.columns(3)
-                with f1:
-                    clientes = ["Todos"] + list(df_ventas['cliente'].unique())
-                    sel_cliente = st.selectbox("Filtrar Cliente", clientes)
-                with f2:
-                    metodos = ["Todos"] + list(df_ventas['metodo'].unique())
-                    sel_metodo = st.selectbox("Método de Pago", metodos)
-                with f3:
-                    # Filtro por texto para productos específicos
-                    busqueda = st.text_input("Buscar Producto", "")
+            # --- FILA 1: MÉTRICAS PRINCIPALES EN CAJITAS ---
+            m1, m2, m3, m4 = st.columns(4)
+            
+            with m1:
+                st.markdown(f"""
+                    <div style="background: #1e293b; padding: 20px; border-radius: 15px; border-left: 5px solid #00d4ff; text-align: center; box-shadow: 2px 2px 10px rgba(0,0,0,0.3);">
+                        <p style="color: #94a3b8; margin:0;">Total Ventas</p>
+                        <h2 style="color: white; margin:0;">${df_ventas['total'].sum():,.0f}</h2>
+                    </div>
+                """.replace(",", "."), unsafe_allow_html=True)
+            
+            with m2:
+                st.markdown(f"""
+                    <div style="background: #1e293b; padding: 20px; border-radius: 15px; border-left: 5px solid #10b981; text-align: center; box-shadow: 2px 2px 10px rgba(0,0,0,0.3);">
+                        <p style="color: #94a3b8; margin:0;">Unidades</p>
+                        <h2 style="color: white; margin:0;">{int(df_ventas['cantidad'].sum())}</h2>
+                    </div>
+                """, unsafe_allow_html=True)
 
-            # Aplicación de filtros dinámicos
-            df_f = df_ventas.copy()
-            if sel_cliente != "Todos":
-                df_f = df_f[df_f['cliente'] == sel_cliente]
-            if sel_metodo != "Todos":
-                df_f = df_f[df_f['metodo'] == sel_metodo]
-            if busqueda:
-                df_f = df_f[df_f['producto'].str.contains(busqueda, case=False)]
+            with m3:
+                # Top Cliente (El que más dinero ha generado)
+                top_cli_nombre = df_ventas.groupby('cliente')['total'].sum().idxmax()
+                st.markdown(f"""
+                    <div style="background: #1e293b; padding: 20px; border-radius: 15px; border-left: 5px solid #f59e0b; text-align: center; box-shadow: 2px 2px 10px rgba(0,0,0,0.3);">
+                        <p style="color: #94a3b8; margin:0;">Mejor Cliente</p>
+                        <h3 style="color: white; margin:0; font-size: 1.1rem;">{top_cli_nombre}</h3>
+                    </div>
+                """, unsafe_allow_html=True)
 
-            # --- DASHBOARD DE MÉTRICAS ---
+            with m4:
+                # Ticket Promedio
+                ticket_prom = df_ventas['total'].mean()
+                st.markdown(f"""
+                    <div style="background: #1e293b; padding: 20px; border-radius: 15px; border-left: 5px solid #8b5cf6; text-align: center; box-shadow: 2px 2px 10px rgba(0,0,0,0.3);">
+                        <p style="color: #94a3b8; margin:0;">Ticket Prom.</p>
+                        <h2 style="color: white; margin:0;">${ticket_prom:,.0f}</h2>
+                    </div>
+                """.replace(",", "."), unsafe_allow_html=True)
+
             st.write("##")
-            m1, m2, m3 = st.columns(3)
-            
-            total_dinero = df_f['total'].sum()
-            total_uds = df_f['cantidad'].sum()
-            
-            m1.metric("💰 Total Ingresos", f"${total_dinero:,.0f}".replace(",", "."))
-            m2.metric("📦 Unidades Vendidas", f"{int(total_uds)} uds")
-            m3.metric("🧾 Operaciones", len(df_f))
 
-            # --- TABLA DE DATOS ESTILIZADA ---
-            st.markdown("---")
+            # --- FILA 2: TOP 3 CLIENTES Y TORTA MENSUAL ---
+            c1, c2 = st.columns([1, 1])
+
+            with c1:
+                st.markdown("### 🏆 Top 3 Clientes")
+                top_3_df = df_ventas.groupby('cliente')['total'].sum().sort_values(ascending=False).head(3).reset_index()
+                
+                fig_top = px.bar(
+                    top_3_df, 
+                    x='total', 
+                    y='cliente', 
+                    orientation='h',
+                    text_auto='.2s',
+                    color='total',
+                    color_continuous_scale='Blues'
+                )
+                fig_top.update_layout(showlegend=False, height=300, margin=dict(t=20, b=20, l=20, r=20), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
+                st.plotly_chart(fig_top, use_container_width=True)
+
+            with c2:
+                st.markdown("### 🍕 Ventas por Mes")
+                df_ventas['mes'] = df_ventas['fecha'].dt.strftime('%B') # Nombre del mes
+                ventas_mes = df_ventas.groupby('mes')['total'].sum().reset_index()
+                
+                fig_pie = px.pie(
+                    ventas_mes, 
+                    values='total', 
+                    names='mes', 
+                    hole=0.4,
+                    color_discrete_sequence=px.colors.qualitative.Pastel
+                )
+                fig_pie.update_layout(height=300, margin=dict(t=20, b=20, l=20, r=20), paper_bgcolor='rgba(0,0,0,0)', font_color="white")
+                st.plotly_chart(fig_pie, use_container_width=True)
+
+            # --- FILA 3: TABLA DETALLADA ---
+            st.divider()
+            st.markdown("#### 📄 Historial de Operaciones Detallado")
             st.dataframe(
-                df_f,
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "fecha": "📅 Fecha",
-                    "cliente": "👤 Cliente",
-                    "producto": "📦 Producto",
-                    "cantidad": st.column_config.NumberColumn("Cant", format="%d"),
-                    "precio_unitario": st.column_config.NumberColumn("Precio U.", format="$%d"),
-                    "total": st.column_config.NumberColumn("Total", format="$%d"),
-                    "metodo": "💳 Método"
-                }
+                df_ventas[['fecha', 'cliente', 'producto', 'cantidad', 'total', 'metodo']], 
+                use_container_width=True, 
+                hide_index=True
             )
 
-            # Botón de descarga para reportes
-            csv = df_f.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                "📥 Descargar Reporte CSV",
-                csv,
-                "reporte_ventas.csv",
-                "text/csv",
-                use_container_width=True
-            )
         else:
-            st.info("No hay registros de ventas todavía.")
-            
+            st.info("No hay datos de ventas disponibles para graficar.")
+
     except Exception as e:
-        st.error(f"Error al conectar con la base de datos de ventas: {e}")
+        st.error(f"Error al generar el Dashboard: {e}")
