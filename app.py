@@ -503,3 +503,84 @@ elif selected == "Ingresar Stock":
         use_container_width=True, 
         hide_index=True
     )
+
+
+# --- 3. HISTORIAL DE VENTAS ---
+elif selected == "Historial de Ventas":
+    st.markdown("<h1 style='text-align: center; color: #00d4ff;'>📋 Registro Global de Ventas</h1>", unsafe_allow_html=True)
+
+    try:
+        # Cargamos los datos de la hoja 'ventas'
+        df_ventas = conn.read(worksheet="ventas")
+        
+        if not df_ventas.empty:
+            # Aseguramos formatos numéricos para cálculos precisos
+            df_ventas['cantidad'] = pd.to_numeric(df_ventas['cantidad'], errors='coerce').fillna(0)
+            df_ventas['precio_unitario'] = pd.to_numeric(df_ventas['precio_unitario'], errors='coerce').fillna(0)
+            df_ventas['total'] = pd.to_numeric(df_ventas['total'], errors='coerce').fillna(0)
+
+            # --- SECCIÓN DE FILTROS ---
+            with st.container(border=True):
+                st.markdown("#### 🔍 Filtros de Búsqueda")
+                f1, f2, f3 = st.columns(3)
+                with f1:
+                    clientes = ["Todos"] + list(df_ventas['cliente'].unique())
+                    sel_cliente = st.selectbox("Filtrar Cliente", clientes)
+                with f2:
+                    metodos = ["Todos"] + list(df_ventas['metodo'].unique())
+                    sel_metodo = st.selectbox("Método de Pago", metodos)
+                with f3:
+                    # Filtro por texto para productos específicos
+                    busqueda = st.text_input("Buscar Producto", "")
+
+            # Aplicación de filtros dinámicos
+            df_f = df_ventas.copy()
+            if sel_cliente != "Todos":
+                df_f = df_f[df_f['cliente'] == sel_cliente]
+            if sel_metodo != "Todos":
+                df_f = df_f[df_f['metodo'] == sel_metodo]
+            if busqueda:
+                df_f = df_f[df_f['producto'].str.contains(busqueda, case=False)]
+
+            # --- DASHBOARD DE MÉTRICAS ---
+            st.write("##")
+            m1, m2, m3 = st.columns(3)
+            
+            total_dinero = df_f['total'].sum()
+            total_uds = df_f['cantidad'].sum()
+            
+            m1.metric("💰 Total Ingresos", f"${total_dinero:,.0f}".replace(",", "."))
+            m2.metric("📦 Unidades Vendidas", f"{int(total_uds)} uds")
+            m3.metric("🧾 Operaciones", len(df_f))
+
+            # --- TABLA DE DATOS ESTILIZADA ---
+            st.markdown("---")
+            st.dataframe(
+                df_f,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "fecha": "📅 Fecha",
+                    "cliente": "👤 Cliente",
+                    "producto": "📦 Producto",
+                    "cantidad": st.column_config.NumberColumn("Cant", format="%d"),
+                    "precio_unitario": st.column_config.NumberColumn("Precio U.", format="$%d"),
+                    "total": st.column_config.NumberColumn("Total", format="$%d"),
+                    "metodo": "💳 Método"
+                }
+            )
+
+            # Botón de descarga para reportes
+            csv = df_f.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                "📥 Descargar Reporte CSV",
+                csv,
+                "reporte_ventas.csv",
+                "text/csv",
+                use_container_width=True
+            )
+        else:
+            st.info("No hay registros de ventas todavía.")
+            
+    except Exception as e:
+        st.error(f"Error al conectar con la base de datos de ventas: {e}")
