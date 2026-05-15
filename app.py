@@ -146,7 +146,7 @@ if selected == "Panel Principal":
 
     with tab1:
         st.markdown("### Inventario Sin Licor")
-        st.dataframe(inv_sin_licor[['nombre', 'precio', 'stock']], use_container_width=True, hide_index=True)
+        st.dataframe(inv_sin_licor[inv_sin_licor['stock'] > 0 ][['nombre', 'precio', 'stock']], use_container_width=True, hide_index=True)
 
     with tab2:
         st.markdown("### Inventario Con Licor")
@@ -156,7 +156,6 @@ if selected == "Panel Principal":
         st.markdown("### Inventario de Promociones (Si)")
         st.dataframe(inv_promos[['nombre', 'tipo', 'precio', 'stock']], use_container_width=True, hide_index=True)
 
-# --- 2. REGISTRAR VENTA ---
 # --- 2. REGISTRAR VENTA ---
 elif selected == "Registrar Venta":
     st.markdown("<h1 style='text-align: center; color: #00d4ff;'>💎 Terminal de Ventas Pro</h1>", unsafe_allow_html=True)
