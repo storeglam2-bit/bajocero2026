@@ -254,91 +254,64 @@ elif selected == "Registrar Venta":
 elif selected == "Clientes":
     st.markdown("<h1 style='text-align: center; color: #00d4ff;'>👥 Administración de Clientes</h1>", unsafe_allow_html=True)
 
-    # 1. PREPARACIÓN DE DATOS
-    # Limpiamos columnas para evitar errores
-    df_clientes.columns = df_clientes.columns.str.strip()
+    # 1. MÉTRICA PRINCIPAL
     total_clientes = len(df_clientes)
-
-    # --- 2. CAJITA PREMIUM: TOTAL CLIENTES ---
-    # Diseño con gradiente y sombra
     st.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            padding: 25px;
-            border-radius: 20px;
-            border: 1px solid #334155;
-            text-align: center;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-            margin-bottom: 30px;
-        ">
-            <p style="margin: 0; color: #94a3b8; font-size: 1rem; text-transform: uppercase; letter-spacing: 2px;">Cartera Total de Clientes</p>
-            <h1 style="margin: 0; color: #00d4ff; font-size: 4rem; font-weight: bold;">{total_clientes}</h1>
-            <p style="margin: 0; color: #00ff87; font-size: 0.9rem;">● Clientes registrados activamente</p>
+        <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); padding: 20px; border-radius: 20px; border: 1px solid #334155; text-align: center; margin-bottom: 20px;">
+            <p style="margin: 0; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase;">Total Clientes Registrados</p>
+            <h1 style="margin: 0; color: #00d4ff; font-size: 3.5rem;">{total_clientes}</h1>
         </div>
     """, unsafe_allow_html=True)
 
-    # --- 3. TOP 3 CLIENTES (DISEÑO DE PODIO) ---
-    st.markdown("### 🏆 Top 3 Clientes Destacados")
-    c1, c2, c3 = st.columns(3)
+    # 2. SECCIÓN DE GESTIÓN (MODIFICAR/ELIMINAR)
+    st.markdown("### 🛠️ Panel de Edición")
     
-    # Nota: Aquí asumo que tienes una forma de medir compras, 
-    # por ahora pondremos placeholders elegantes basados en tu lista
-    with c1:
-        st.markdown("""
-            <div style="background: #1e293b; padding: 15px; border-radius: 15px; border-bottom: 4px solid #ffd700; text-align: center;">
-                <span style="font-size: 2rem;">🥇</span>
-                <p style="margin:0; font-weight: bold; color: #f8fafc;">EL DISTRITO</p>
-                <p style="margin:0; font-size: 0.8rem; color: #ffd700;">Cliente VIP</p>
-            </div>
-        """, unsafe_allow_html=True)
-    with c2:
-        st.markdown("""
-            <div style="background: #1e293b; padding: 15px; border-radius: 15px; border-bottom: 4px solid #c0c0c0; text-align: center;">
-                <span style="font-size: 2rem;">🥈</span>
-                <p style="margin:0; font-weight: bold; color: #f8fafc;">BAJO CERO</p>
-                <p style="margin:0; font-size: 0.8rem; color: #c0c0c0;">Recurrente</p>
-            </div>
-        """, unsafe_allow_html=True)
-    with c3:
-        st.markdown("""
-            <div style="background: #1e293b; padding: 15px; border-radius: 15px; border-bottom: 4px solid #cd7f32; text-align: center;">
-                <span style="font-size: 2rem;">🥉</span>
-                <p style="margin:0; font-weight: bold; color: #f8fafc;">POZON</p>
-                <p style="margin:0; font-size: 0.8rem; color: #cd7f32;">Nuevo Socio</p>
-            </div>
-        """, unsafe_allow_html=True)
+    with st.container(border=True):
+        if 'empresa' in df_clientes.columns:
+            # Selector para elegir qué cliente gestionar
+            cliente_a_editar = st.selectbox("Selecciona un cliente para gestionar", df_clientes['empresa'].unique())
+            
+            # Obtener datos actuales del cliente seleccionado
+            datos_cliente = df_clientes[df_clientes['empresa'] == cliente_a_editar].iloc[0]
+            
+            col_edit, col_del = st.columns([3, 1])
+            
+            with col_edit:
+                st.info(f"Modificando datos de: **{cliente_a_editar}**")
+                nuevo_nombre = st.text_input("Editar Nombre de Empresa", value=cliente_a_editar)
+                # Aquí puedes añadir más campos si tienes columnas como 'telefono' o 'ciudad'
+                
+                if st.button("💾 Guardar Cambios", use_container_width=True):
+                    # Lógica para actualizar en GSheets
+                    # conn.update(worksheet="clientes", ...)
+                    st.success(f"¡Cliente actualizado a '{nuevo_nombre}'!")
+                    st.balloons()
+
+            with col_del:
+                st.write("##") # Espaciador
+                st.warning("⚠️ Zona de Peligro")
+                if st.button("🗑️ Eliminar Cliente", use_container_width=True, type="secondary"):
+                    # Lógica para borrar fila en GSheets
+                    st.error(f"Cliente '{cliente_a_editar}' eliminado.")
+                    # st.rerun()
+        else:
+            st.error("No se encontró la columna 'empresa' en la base de datos.")
 
     st.divider()
 
-    # --- 4. FORMULARIO Y TABLA ---
-    col_form, col_tabla = st.columns([1, 2])
-
-    with col_form:
+    # 3. REGISTRO Y VISTA GENERAL
+    c1, c2 = st.columns([1, 1.5])
+    
+    with c1:
         st.markdown("#### ➕ Nuevo Registro")
         with st.container(border=True):
-            nombre_nuevo = st.text_input("Nombre de la Empresa / Cliente")
-            ciudad_cliente = st.text_input("Ciudad / Ubicación")
-            
-            if st.button("🚀 Registrar Cliente", use_container_width=True):
-                if nombre_nuevo:
-                    # Aquí iría la lógica conn.update()
-                    st.success(f"Registrado: {nombre_nuevo}")
-                    st.balloons()
-                else:
-                    st.error("Ingresa un nombre")
+            nombre_n = st.text_input("Nombre de la Empresa")
+            if st.button("🚀 Registrar", use_container_width=True):
+                st.success("Cliente registrado")
 
-    with col_tabla:
-        st.markdown("#### 📋 Base de Datos Actual")
-        # Mostramos la tabla compacta, profesional y sin index
-        if 'empresa' in df_clientes.columns:
-            st.dataframe(
-                df_clientes[['empresa']], 
-                use_container_width=True, 
-                hide_index=True,
-                height=400
-            )
-        else:
-            st.warning("No se encontró la columna 'empresa'")
+    with c2:
+        st.markdown("#### 📋 Listado General")
+        st.dataframe(df_clientes[['empresa']], use_container_width=True, hide_index=True, height=250)
 
 # --- 4. INGRESAR STOCK ---
 elif selected == "Ingresar Stock":
