@@ -35,18 +35,30 @@ with st.sidebar:
 # --- 1. PANEL PRINCIPAL ---
 if selected == "Panel Principal":
     st.header("📊 Resumen de Inventario")
-    # --- CÁLCULOS PREVIOS ---
-    # Separamos los grupos
-    con_licor = df_productos[df_productos['tipo'] == 'Con Licor']
-    sin_licor = df_productos[df_productos['tipo'] == 'Sin Licor']
-    promos = df_productos[df_productos['promo'] == 'Si']
+    # --- 1. PROCESAMIENTO DE DATOS (Panel Principal) ---
+    # Aseguramos que el stock sea entero y manejamos nulos
+    df_productos['stock'] = df_productos['stock'].fillna(0).astype(int)
+    df_productos['precio'] = df_productos['precio'].fillna(0)
 
-    # Valores
-    val_con = (con_licor['precio'] * con_licor['stock']).sum()
-    val_sin = (sin_licor['precio'] * sin_licor['stock']).sum()
+    # Filtrado de Grupos
+    con_licor_total = df_productos[(df_productos['tipo'] == 'Con Licor')]
+    sin_licor_total = df_productos[(df_productos['tipo'] == 'Sin Licor')]
+
+    # Inventarios específicos para las tablas
+    inv_sin_licor = df_productos[(df_productos['tipo'] == 'Sin Licor') & (df_productos['promo'] == 'No')]
+    inv_con_licor = df_productos[(df_productos['tipo'] == 'Con Licor') & (df_productos['promo'] == 'No')]
+    inv_promos = df_productos[df_productos['promo'] == 'Si']
+
+    # Alertas
+    agotados = df_productos[df_productos['stock'] == 0]
+    por_agotarse = df_productos[(df_productos['stock'] > 0) & (df_productos['stock'] <= 5)]
+
+    # Cálculos de Valorización
+    val_con = (con_licor_total['precio'] * con_licor_total['stock']).sum()
+    val_sin = (sin_licor_total['precio'] * sin_licor_total['stock']).sum()
     val_total = val_con + val_sin
 
-    # Estilos CSS Avanzados
+    # --- 2. ESTILOS CSS PERSONALIZADOS ---
     st.markdown("""
     <style>
         .main-card {
@@ -54,96 +66,86 @@ if selected == "Panel Principal":
             padding: 20px;
             border-radius: 15px;
             border: 1px solid #333;
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
-        .metric-title {
-            color: #888;
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .metric-value {
-            color: #00D4FF;
-            font-size: 28px;
+        .metric-title { color: #888; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+        .metric-value { color: #00D4FF; font-size: 30px; font-weight: bold; }
+        .status-tag {
+            padding: 8px 15px;
+            border-radius: 10px;
+            font-size: 13px;
             font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
         }
-        .sub-value {
-            color: #00FF87;
-            font-size: 18px;
-        }
+        .tag-critical { background-color: rgba(255, 75, 75, 0.1); color: #FF4B4B; border: 1px solid #FF4B4B; }
+        .tag-warning { background-color: rgba(255, 165, 0, 0.1); color: #FFA500; border: 1px solid #FFA500; }
     </style>
     """, unsafe_allow_html=True)
 
-    st.title("📊 Dashboard Ejecutivo - Bajo Cero")
+    # --- 3. DISEÑO DE LA INTERFAZ ---
+    st.title("📊 Dashboard Ejecutivo")
 
-    # --- FILA 1: CANTIDADES (CAJITAS) ---
+    # FILA 1: MÉTRICAS DE CANTIDAD
     col1, col2, col3, col4 = st.columns(4)
-
     with col1:
-        st.markdown(f'''<div class="main-card">
-            <div class="metric-title">📦 Total Unidades</div>
-            <div class="metric-value">{int(df_productos['stock'].sum())}</div>
-        </div>''', unsafe_allow_html=True)
-
+        st.markdown(f'<div class="main-card"><div class="metric-title">📦 Total Stock</div><div class="metric-value">{df_productos["stock"].sum()}</div></div>', unsafe_allow_html=True)
     with col2:
-        st.markdown(f'''<div class="main-card">
-            <div class="metric-title">🥃 Con Licor</div>
-            <div class="metric-value">{int(con_licor['stock'].sum())} <span style="font-size:15px">und</span></div>
-        </div>''', unsafe_allow_html=True)
-
+        st.markdown(f'<div class="main-card"><div class="metric-title">🥃 Con Licor</div><div class="metric-value">{con_licor_total["stock"].sum()} <span style="font-size:14px">und</span></div></div>', unsafe_allow_html=True)
     with col3:
-        st.markdown(f'''<div class="main-card">
-            <div class="metric-title">🥤 Sin Licor</div>
-            <div class="metric-value">{int(sin_licor['stock'].sum())} <span style="font-size:15px">und</span></div>
-        </div>''', unsafe_allow_html=True)
-
+        st.markdown(f'<div class="main-card"><div class="metric-title">🥤 Sin Licor</div><div class="metric-value">{sin_licor_total["stock"].sum()} <span style="font-size:14px">und</span></div></div>', unsafe_allow_html=True)
     with col4:
-        st.markdown(f'''<div class="main-card" style="border-left: 5px solid #FF4B4B;">
-            <div class="metric-title">⚠️ Agotados</div>
-            <div class="metric-value" style="color:#FF4B4B">{len(df_productos[df_productos['stock'] == 0])}</div>
-        </div>''', unsafe_allow_html=True)
+        color_agotado = "#FF4B4B" if len(agotados) > 0 else "#00FF87"
+        st.markdown(f'<div class="main-card" style="border-bottom: 4px solid {color_agotado}"><div class="metric-title">⚠️ Agotados</div><div class="metric-value" style="color:{color_agotado}">{len(agotados)}</div></div>', unsafe_allow_html=True)
 
-    # --- FILA 2: VALORIZACIÓN (DISEÑO MÁS ELEGANTE) ---
-    st.markdown("### 💰 Valorización del Patrimonio")
+    # FILA 2: VALORIZACIÓN
+    st.subheader("💰 Resumen Financiero de Inventario")
     v1, v2, v3 = st.columns(3)
-
     with v1:
-        st.markdown(f'''<div class="main-card" style="background: linear-gradient(145deg, #1a1a1a, #252525);">
-            <div class="metric-title">Total Con Licor</div>
-            <div class="sub-value">${val_con:,.0f}</div>
-        </div>''', unsafe_allow_html=True)
-
+        st.markdown(f'<div class="main-card"><div class="metric-title">Valor Con Licor</div><div style="color:#00FF87; font-size:20px; font-weight:bold">${val_con:,.0f}</div></div>', unsafe_allow_html=True)
     with v2:
-        st.markdown(f'''<div class="main-card" style="background: linear-gradient(145deg, #1a1a1a, #252525);">
-            <div class="metric-title">Total Sin Licor</div>
-            <div class="sub-value">${val_sin:,.0f}</div>
-        </div>''', unsafe_allow_html=True)
-
+        st.markdown(f'<div class="main-card"><div class="metric-title">Valor Sin Licor</div><div style="color:#00FF87; font-size:20px; font-weight:bold">${val_sin:,.0f}</div></div>', unsafe_allow_html=True)
     with v3:
-        st.markdown(f'''<div class="main-card" style="background: linear-gradient(145deg, #004e92, #000428);">
-            <div class="metric-title" style="color:white">Valor Total</div>
-            <div class="sub-value" style="color:white; font-size:24px">${val_total:,.0f}</div>
-        </div>''', unsafe_allow_html=True)
+        st.markdown(f'<div class="main-card" style="background: linear-gradient(145deg, #004e92, #000428);"><div class="metric-title" style="color:white">Valor Total Patrimonio</div><div style="color:white; font-size:24px; font-weight:bold">${val_total:,.0f}</div></div>', unsafe_allow_html=True)
 
-    # --- FILA 3: PROMOS Y TABLAS ---
     st.divider()
-    c_left, c_right = st.columns([1, 1])
 
-    with c_left:
-        st.subheader("🎁 Inventario Promociones")
-        # Mostramos una tabla estilizada de promos
-        st.dataframe(promos[['nombre', 'tipo', 'stock']], use_container_width=True, hide_index=True)
+    # FILA 3: ALERTAS CRÍTICAS
+    st.subheader("🚨 Alertas de Control")
+    c_crit1, c_crit2 = st.columns(2)
 
-    with c_right:
-        st.subheader("📉 Alerta de Reabastecimiento")
-        bajas = df_productos[(df_productos['stock'] > 0) & (df_productos['stock'] <= 5)]
-        if not bajas.empty:
-            st.warning(f"Tienes {len(bajas)} productos por agotarse.")
-            st.table(bajas[['nombre', 'stock']])
+    with c_crit1:
+        st.markdown('<div class="status-tag tag-critical">🔴 PRODUCTOS AGOTADOS</div>', unsafe_allow_html=True)
+        if not agotados.empty:
+            st.dataframe(agotados[['nombre', 'tipo']], use_container_width=True, hide_index=True)
         else:
-            st.success("¡Todo el stock está en niveles óptimos!")
+            st.success("No hay productos agotados actualmente.")
+
+    with c_crit2:
+        st.markdown('<div class="status-tag tag-warning">🟠 PRÓXIMOS A AGOTARSE (Stock ≤ 5)</div>', unsafe_allow_html=True)
+        if not por_agotarse.empty:
+            st.dataframe(por_agotarse[['nombre', 'stock', 'tipo']], use_container_width=True, hide_index=True)
+        else:
+            st.info("Stock suficiente en todos los productos.")
+
+    st.divider()
+
+    # FILA 4: INVENTARIOS DETALLADOS POR CATEGORÍA
+    st.subheader("📦 Detalle de Existencias")
+    tab1, tab2, tab3 = st.tabs(["🥤 SIN LICOR", "🥃 CON LICOR", "🎁 PROMOS"])
+
+    with tab1:
+        st.markdown("### Inventario Sin Licor")
+        st.dataframe(inv_sin_licor[['nombre', 'precio', 'stock']], use_container_width=True, hide_index=True)
+
+    with tab2:
+        st.markdown("### Inventario Con Licor")
+        st.dataframe(inv_con_licor[['nombre', 'precio', 'stock']], use_container_width=True, hide_index=True)
+
+    with tab3:
+        st.markdown("### Inventario de Promociones (Si)")
+        st.dataframe(inv_promos[['nombre', 'tipo', 'precio', 'stock']], use_container_width=True, hide_index=True)
 
 # --- 2. REGISTRAR VENTA ---
 elif selected == "Registrar Venta":
